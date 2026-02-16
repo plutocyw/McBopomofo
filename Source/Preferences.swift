@@ -75,6 +75,19 @@ let kBeepUponInputErrorKey = "BeepUponInputError"
 
 private let kEnableUserPhrasesInPlainBopomofo = "EnableUserPhrasesInPlainBopomofo"
 private let kAllowChangingPriorTone = "AllowChangingPriorTone"
+private let kLLMCandidateRankingEnabledKey = "LLMCandidateRankingEnabled"
+private let kLLMCandidateRankingProviderKey = "LLMCandidateRankingProvider"
+private let kLLMCandidateRankingTimeoutMsKey = "LLMCandidateRankingTimeoutMs"
+private let kLLMCandidateRankingTopNKey = "LLMCandidateRankingTopN"
+private let kLLMCandidateRankingAutoPreselectEnabledKey =
+    "LLMCandidateRankingAutoPreselectEnabled"
+
+private let kDefaultLLMCandidateRankingTimeoutMs = 12
+private let kMinLLMCandidateRankingTimeoutMs = 1
+private let kMaxLLMCandidateRankingTimeoutMs = 200
+private let kDefaultLLMCandidateRankingTopN = 10
+private let kMinLLMCandidateRankingTopN = 1
+private let kMaxLLMCandidateRankingTopN = 50
 
 // MARK: Property wrappers
 
@@ -159,6 +172,38 @@ struct CandidateListTextSize {
     }
 }
 
+@propertyWrapper
+struct BoundedIntUserDefault {
+    let key: String
+    let defaultValue: Int
+    let minValue: Int
+    let maxValue: Int
+    lazy var container: UserDefault = {
+        UserDefault(key: key, defaultValue: defaultValue)
+    }()
+
+    var wrappedValue: Int {
+        mutating get {
+            var value = container.wrappedValue
+            if value < minValue {
+                value = minValue
+            } else if value > maxValue {
+                value = maxValue
+            }
+            return value
+        }
+        set {
+            var value = newValue
+            if value < minValue {
+                value = minValue
+            } else if value > maxValue {
+                value = maxValue
+            }
+            container.wrappedValue = value
+        }
+    }
+}
+
 // MARK: -
 
 @objc enum KeyboardLayout: Int {
@@ -201,6 +246,23 @@ struct CandidateListTextSize {
     }
 }
 
+@objc enum LLMCandidateRankingProvider: Int {
+    case disabled = 0
+    case appleOnDevice = 1
+    case openSource = 2
+
+    var name: String {
+        return switch self {
+        case .disabled:
+            "Disabled"
+        case .appleOnDevice:
+            "AppleOnDevice"
+        case .openSource:
+            "OpenSource"
+        }
+    }
+}
+
 // MARK: -
 
 class Preferences: NSObject {
@@ -229,6 +291,11 @@ class Preferences: NSObject {
             kRepeatedPunctuationToSelectCandidateEnabledKey,
             kUseCustomUserPhraseLocation,
             kCustomUserPhraseLocation,
+            kLLMCandidateRankingEnabledKey,
+            kLLMCandidateRankingProviderKey,
+            kLLMCandidateRankingTimeoutMsKey,
+            kLLMCandidateRankingTopNKey,
+            kLLMCandidateRankingAutoPreselectEnabledKey,
         ]
     }
 
@@ -260,6 +327,12 @@ class Preferences: NSObject {
         Preferences.enableUserPhrasesInPlainBopomofo = Preferences.enableUserPhrasesInPlainBopomofo
         Preferences.allowMovingCursorWhenChoosingCandidates =
             Preferences.allowMovingCursorWhenChoosingCandidates
+        Preferences.llmCandidateRankingEnabled = Preferences.llmCandidateRankingEnabled
+        Preferences.llmCandidateRankingProvider = Preferences.llmCandidateRankingProvider
+        Preferences.llmCandidateRankingTimeoutMs = Preferences.llmCandidateRankingTimeoutMs
+        Preferences.llmCandidateRankingTopN = Preferences.llmCandidateRankingTopN
+        Preferences.llmCandidateRankingAutoPreselectEnabled =
+            Preferences.llmCandidateRankingAutoPreselectEnabled
     }
 
     @EnumUserDefault(key: kKeyboardLayoutPreferenceKey, defaultValue: KeyboardLayout.standard)
@@ -577,6 +650,27 @@ extension Preferences {
 }
 
 extension Preferences {
+    @UserDefault(key: kLLMCandidateRankingEnabledKey, defaultValue: false)
+    @objc static var llmCandidateRankingEnabled: Bool
+
+    @EnumUserDefault(key: kLLMCandidateRankingProviderKey, defaultValue: .disabled)
+    @objc static var llmCandidateRankingProvider: LLMCandidateRankingProvider
+
+    @BoundedIntUserDefault(
+        key: kLLMCandidateRankingTimeoutMsKey, defaultValue: kDefaultLLMCandidateRankingTimeoutMs,
+        minValue: kMinLLMCandidateRankingTimeoutMs, maxValue: kMaxLLMCandidateRankingTimeoutMs)
+    @objc static var llmCandidateRankingTimeoutMs: Int
+
+    @BoundedIntUserDefault(
+        key: kLLMCandidateRankingTopNKey, defaultValue: kDefaultLLMCandidateRankingTopN,
+        minValue: kMinLLMCandidateRankingTopN, maxValue: kMaxLLMCandidateRankingTopN)
+    @objc static var llmCandidateRankingTopN: Int
+
+    @UserDefault(key: kLLMCandidateRankingAutoPreselectEnabledKey, defaultValue: false)
+    @objc static var llmCandidateRankingAutoPreselectEnabled: Bool
+}
+
+extension Preferences {
     static func createReport() -> String {
         var lines: [String] = []
         lines.append("- McBopomofo Settings")
@@ -634,6 +728,18 @@ extension Preferences {
             "  - Beep Upon Errors: \(Preferences.beepUponInputError ? "Enabled" : "Disabled")")
         lines.append(
             "  - Moving Cursor When Choosing Candidates: \(Preferences.allowMovingCursorWhenChoosingCandidates)"
+        )
+        lines.append(
+            "  - LLM Candidate Ranking: \(Preferences.llmCandidateRankingEnabled ? "Enabled" : "Disabled")"
+        )
+        lines.append(
+            "  - LLM Candidate Ranking Provider: \(Preferences.llmCandidateRankingProvider.name)")
+        lines.append(
+            "  - LLM Candidate Ranking Timeout: \(Preferences.llmCandidateRankingTimeoutMs) ms")
+        lines.append(
+            "  - LLM Candidate Ranking Top N: \(Preferences.llmCandidateRankingTopN)")
+        lines.append(
+            "  - LLM Candidate Ranking Auto-Preselect: \(Preferences.llmCandidateRankingAutoPreselectEnabled ? "Enabled" : "Disabled")"
         )
         return lines.joined(separator: "\n")
     }

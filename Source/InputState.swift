@@ -478,15 +478,29 @@ class InputState: NSObject {
         @objc private(set) var candidates: [Candidate]
         @objc private(set) var useVerticalMode: Bool
         @objc var originalCursorIndex: UInt
+        let rankingContextToken: CandidateRankingContextToken
 
-        @objc init(
+        init(
             composingBuffer: String, cursorIndex: UInt, candidates: [Candidate],
-            useVerticalMode: Bool
+            useVerticalMode: Bool, rankingContextToken: CandidateRankingContextToken
         ) {
             self.candidates = candidates
             self.useVerticalMode = useVerticalMode
             self.originalCursorIndex = cursorIndex
+            self.rankingContextToken = rankingContextToken
             super.init(composingBuffer: composingBuffer, cursorIndex: cursorIndex)
+        }
+
+        @objc convenience init(
+            composingBuffer: String, cursorIndex: UInt, candidates: [Candidate],
+            useVerticalMode: Bool
+        ) {
+            self.init(
+                composingBuffer: composingBuffer,
+                cursorIndex: cursorIndex,
+                candidates: candidates,
+                useVerticalMode: useVerticalMode,
+                rankingContextToken: CandidateRankingContextToken())
         }
 
         @objc var attributedString: NSAttributedString {

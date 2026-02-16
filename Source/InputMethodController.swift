@@ -54,6 +54,12 @@ class McBopomofoInputMethodController: IMKInputController {
     var currentClient: Any?
     var keyHandler: KeyHandler = KeyHandler()
     var state: InputState = InputState.Empty()
+    private var activeCandidateRankingToken: CandidateRankingContextToken?
+    private var dispatchedCandidateRankingToken: CandidateRankingContextToken?
+    private let candidateRankingQueue = DispatchQueue(
+        label: "org.openvanilla.McBopomofo.CandidateRanking",
+        qos: .userInitiated
+    )
     lazy var charInfo: SystemCharacterInfo? = try? SystemCharacterInfo()
 
     // Share the stored issues, so a set of issues is shown as notification only once.
@@ -125,6 +131,12 @@ class McBopomofoInputMethodController: IMKInputController {
         menu.addItem(
             withTitle: NSLocalizedString("Reload User Phrases", comment: ""),
             action: #selector(reloadUserPhrases(_:)), keyEquivalent: "")
+        menu.addItem(
+            withTitle: NSLocalizedString("Log Candidate Ranking Stats", comment: ""),
+            action: #selector(logCandidateRankingStats(_:)), keyEquivalent: "")
+        menu.addItem(
+            withTitle: NSLocalizedString("Reset Candidate Ranking Stats", comment: ""),
+            action: #selector(resetCandidateRankingStats(_:)), keyEquivalent: "")
 
         if !McBopomofoInputMethodController.latestUserFileIssues.isEmpty {
             // Setting menuItem.image does not work in input method menus even on macOS 26,
@@ -334,6 +346,24 @@ class McBopomofoInputMethodController: IMKInputController {
         checkUserFileIssues()
     }
 
+    @objc func logCandidateRankingStats(_ sender: Any?) {
+        let snapshot = CandidateRankingStats.currentSnapshot()
+        NSLog(
+            "CandidateRankingStats snapshot scheduled=%d applied=%d staleDropped=%d timeoutFallback=%d invalidResultFallback=%d parserFallback=%d",
+            snapshot.scheduled,
+            snapshot.applied,
+            snapshot.staleDropped,
+            snapshot.timeoutFallback,
+            snapshot.invalidResultFallback,
+            snapshot.parserFallback
+        )
+    }
+
+    @objc func resetCandidateRankingStats(_ sender: Any?) {
+        CandidateRankingStats.reset()
+        NSLog("CandidateRankingStats reset")
+    }
+
     @objc func showUserFileIssues(_ sender: Any?) {
         let header = NSLocalizedString(
             "Issues were found in the following user phrase files:", comment: "")
@@ -371,6 +401,7 @@ extension McBopomofoInputMethodController {
     func handle(state newState: InputState, client: Any?) {
         let previous = state
         state = newState
+        activeCandidateRankingToken = (newState as? InputState.ChoosingCandidate)?.rankingContextToken
 
         switch newState {
         case let newState as InputState.Deactivated:
@@ -409,6 +440,16 @@ extension McBopomofoInputMethodController {
         default:
             break
         }
+    }
+
+    func isCurrentCandidateRankingToken(_ token: CandidateRankingContextToken) -> Bool {
+        guard
+            let currentState = state as? InputState.ChoosingCandidate,
+            let activeToken = activeCandidateRankingToken
+        else {
+            return false
+        }
+        return currentState.rankingContextToken == token && activeToken == token
     }
 
     private func commit(text: String, client: Any!) {
@@ -561,7 +602,12 @@ extension McBopomofoInputMethodController {
         client.setMarkedText(
             state.attributedString, selectionRange: NSMakeRange(Int(state.cursorIndex), 0),
             replacementRange: NSMakeRange(NSNotFound, NSNotFound))
-        show(candidateWindowWith: state, client: client)
+        if shouldAutoPreselectWithLLM {
+            gCurrentCandidateController?.visible = false
+        } else {
+            show(candidateWindowWith: state, client: client)
+        }
+        scheduleCandidateRankingIfNeeded(for: state, client: client)
     }
 
     private func handle(state: InputState.AssociatedPhrases, previous: InputState, client: Any?) {
@@ -707,6 +753,11 @@ extension McBopomofoInputMethodController {
 // MARK: -
 
 extension McBopomofoInputMethodController {
+    private var shouldAutoPreselectWithLLM: Bool {
+        Preferences.llmCandidateRankingEnabled
+            && Preferences.llmCandidateRankingAutoPreselectEnabled
+    }
+
     private func handleStateForCustomInput(
         composingBuffer: String, previous: InputState, client: Any?
     ) {
@@ -911,5 +962,98 @@ extension McBopomofoInputMethodController {
                         "Check McBopomofo menu for user file issues", comment: ""), stay: true)
             }
         }
+    }
+
+    private func scheduleCandidateRankingIfNeeded(
+        for state: InputState.ChoosingCandidate,
+        client: Any
+    ) {
+        guard Preferences.llmCandidateRankingEnabled else {
+            return
+        }
+        if dispatchedCandidateRankingToken == state.rankingContextToken {
+            return
+        }
+        guard
+            let request = CandidateRankingPipeline.makeRequest(
+                from: state,
+                topN: Preferences.llmCandidateRankingTopN
+            )
+        else {
+            return
+        }
+        dispatchedCandidateRankingToken = state.rankingContextToken
+        CandidateRankingStats.record(.scheduled)
+
+        let ranker = TimeoutCandidateRanker(
+            base: CandidateRankerFactory.makeCandidateRanker(),
+            timeoutMs: Preferences.llmCandidateRankingTimeoutMs
+        )
+        candidateRankingQueue.async { [weak self] in
+            guard let self else {
+                return
+            }
+            let result = ranker.rank(request: request)
+            DispatchQueue.main.async {
+                self.applyCandidateRankingResult(result, client: client)
+            }
+        }
+    }
+
+    private func applyCandidateRankingResult(_ result: CandidateRankingResult, client: Any) {
+        guard isCurrentCandidateRankingToken(result.token) else {
+            CandidateRankingStats.record(.staleDropped)
+            return
+        }
+        guard let choosingState = state as? InputState.ChoosingCandidate else {
+            return
+        }
+        guard !choosingState.candidates.isEmpty else {
+            return
+        }
+        let rankedCandidateCount = result.orderedCandidateIndices.count
+        let isInvalidRankingResult =
+            rankedCandidateCount > choosingState.candidates.count
+            || !result.isValidPermutation(candidateCount: rankedCandidateCount)
+
+        if shouldAutoPreselectWithLLM {
+            let selectedIndex: Int
+            if isInvalidRankingResult {
+                CandidateRankingStats.record(.invalidResultFallback)
+                selectedIndex = 0
+            } else {
+                selectedIndex = result.orderedCandidateIndices.first ?? 0
+            }
+            CandidateRankingStats.record(.applied)
+            candidateController(
+                gCurrentCandidateController ?? .vertical,
+                didSelectCandidateAtIndex: UInt(selectedIndex)
+            )
+            return
+        }
+
+        if isInvalidRankingResult {
+            CandidateRankingStats.record(.invalidResultFallback)
+            return
+        }
+        guard
+            let reorderedCandidates = CandidateRankingPipeline.reorderedCandidates(
+                from: choosingState.candidates,
+                result: result
+            )
+        else {
+            return
+        }
+
+        let rerankedState = InputState.ChoosingCandidate(
+            composingBuffer: choosingState.composingBuffer,
+            cursorIndex: choosingState.cursorIndex,
+            candidates: reorderedCandidates,
+            useVerticalMode: choosingState.useVerticalMode,
+            rankingContextToken: choosingState.rankingContextToken
+        )
+        rerankedState.originalCursorIndex = choosingState.originalCursorIndex
+        CandidateRankingStats.record(.applied)
+        handle(state: rerankedState, client: client)
     }
 }

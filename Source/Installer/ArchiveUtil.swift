@@ -37,7 +37,7 @@ struct ArchiveUtil {
     // Resources/NotarizedArchives/$_appName-$bundleVersion.zip exists, and (2) if
     // Resources/$_invalidAppBundleName does not exist.
     func validateIfNotarizedArchiveExists() -> Bool {
-        guard let resourePath = Bundle.main.resourcePath,
+        guard let resourcePath = Bundle.main.resourcePath,
               let notarizedArchivesPath = notarizedArchivesPath,
               let notarizedArchive = notarizedArchive,
               let notarizedArchivesContent: [String] = try? FileManager.default.subpathsOfDirectory(atPath: notarizedArchivesPath)
@@ -45,8 +45,14 @@ struct ArchiveUtil {
             return false
         }
 
-        let devModeAppBundlePath = (resourePath as NSString).appendingPathComponent(targetAppBundleName)
-        let count = notarizedArchivesContent.count
+        let devModeAppBundlePath = (resourcePath as NSString).appendingPathComponent(targetAppBundleName)
+        let archiveEntries = notarizedArchivesContent.filter { path in
+            if path.hasPrefix(".") {
+                return false
+            }
+            return (path as NSString).pathExtension.lowercased() == "zip"
+        }
+        let count = archiveEntries.count
         let notarizedArchiveExists = FileManager.default.fileExists(atPath: notarizedArchive)
         let devModeAppBundleExists = FileManager.default.fileExists(atPath: devModeAppBundlePath)
 

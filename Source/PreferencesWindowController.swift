@@ -37,6 +37,10 @@ private let kWindowTitleHeight: CGFloat = 78
 // in Objective-C in order to let IMK to see the same class name as
 // the "InputMethodServerPreferencesWindowControllerClass" in Info.plist.
 @objc(PreferencesWindowController) class PreferencesWindowController: NSWindowController {
+    private let kLLMControlBottomInset: CGFloat = 12
+    private let kLLMControlSpacing: CGFloat = 8
+    private let kLLMControlExtraViewHeight: CGFloat = 46
+
     @IBOutlet weak var fontSizePopUpButton: NSPopUpButton!
     @IBOutlet weak var basisKeyboardLayoutButton: NSPopUpButton!
     @IBOutlet weak var selectionKeyComboBox: NSComboBox!
@@ -51,6 +55,8 @@ private let kWindowTitleHeight: CGFloat = 78
     @IBOutlet weak var advancedSettingsView: NSView!
 
     @IBOutlet weak var addPhraseHookPathField: NSTextField!
+    private var llmRankingEnabledButton: NSButton?
+    private var llmAutoPreselectEnabledButton: NSButton?
 
     override func awakeFromNib() {
         let toolbar = NSToolbar(identifier: "preference toolbar")
@@ -203,6 +209,7 @@ private let kWindowTitleHeight: CGFloat = 78
         customUserPhraseLocationEnabledButton.selectItem(at: index)
         updateUserPhraseLocation()
         addPhraseHookPathField.stringValue = Preferences.addPhraseHookPath
+        configureLLMControls()
     }
 
     @IBAction func updateBasisKeyboardLayoutAction(_ sender: Any) {
@@ -299,6 +306,69 @@ private let kWindowTitleHeight: CGFloat = 78
         Task { @MainActor in
             await openSystemInfoReportAsync()
         }
+    }
+
+    @objc private func toggleLLMCandidateRankingEnabled(_ sender: NSButton) {
+        Preferences.llmCandidateRankingEnabled = (sender.state == .on)
+        refreshLLMControlsState()
+    }
+
+    @objc private func toggleLLMAutoPreselect(_ sender: NSButton) {
+        Preferences.llmCandidateRankingAutoPreselectEnabled = (sender.state == .on)
+        refreshLLMControlsState()
+    }
+
+    private func configureLLMControls() {
+        if llmRankingEnabledButton != nil || llmAutoPreselectEnabledButton != nil {
+            refreshLLMControlsState()
+            return
+        }
+
+        var frame = advancedSettingsView.frame
+        frame.size.height += kLLMControlExtraViewHeight
+        advancedSettingsView.frame = frame
+
+        let rankingButton = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+        rankingButton.translatesAutoresizingMaskIntoConstraints = false
+        rankingButton.title = NSLocalizedString("Use LLM Candidate Ranking", comment: "")
+        rankingButton.target = self
+        rankingButton.action = #selector(toggleLLMCandidateRankingEnabled(_:))
+
+        let autoPreselectButton = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+        autoPreselectButton.translatesAutoresizingMaskIntoConstraints = false
+        autoPreselectButton.title = NSLocalizedString(
+            "Auto-preselect top ranked candidate", comment: "")
+        autoPreselectButton.target = self
+        autoPreselectButton.action = #selector(toggleLLMAutoPreselect(_:))
+
+        advancedSettingsView.addSubview(rankingButton)
+        advancedSettingsView.addSubview(autoPreselectButton)
+
+        NSLayoutConstraint.activate([
+            autoPreselectButton.leadingAnchor.constraint(
+                equalTo: advancedSettingsView.leadingAnchor, constant: 20),
+            autoPreselectButton.bottomAnchor.constraint(
+                equalTo: advancedSettingsView.bottomAnchor, constant: -kLLMControlBottomInset),
+            autoPreselectButton.trailingAnchor.constraint(
+                lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+
+            rankingButton.leadingAnchor.constraint(equalTo: autoPreselectButton.leadingAnchor),
+            rankingButton.bottomAnchor.constraint(
+                equalTo: autoPreselectButton.topAnchor, constant: -kLLMControlSpacing),
+            rankingButton.trailingAnchor.constraint(
+                lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+        ])
+
+        llmRankingEnabledButton = rankingButton
+        llmAutoPreselectEnabledButton = autoPreselectButton
+        refreshLLMControlsState()
+    }
+
+    private func refreshLLMControlsState() {
+        llmRankingEnabledButton?.state = Preferences.llmCandidateRankingEnabled ? .on : .off
+        llmAutoPreselectEnabledButton?.state =
+            Preferences.llmCandidateRankingAutoPreselectEnabled ? .on : .off
+        llmAutoPreselectEnabledButton?.isEnabled = Preferences.llmCandidateRankingEnabled
     }
 }
 

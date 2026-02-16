@@ -200,6 +200,55 @@ final class PreferencesTests {
         #expect(Preferences.chineseConversionStyle == .model)
     }
 
+    @Test("Test LLM candidate ranking enabled flag")
+    func testLLMCandidateRankingEnabled() {
+        #expect(Preferences.llmCandidateRankingEnabled == false)
+        Preferences.llmCandidateRankingEnabled = true
+        #expect(Preferences.llmCandidateRankingEnabled == true)
+    }
+
+    @Test("Test LLM candidate ranking provider")
+    func testLLMCandidateRankingProvider() {
+        #expect(Preferences.llmCandidateRankingProvider == .disabled)
+        Preferences.llmCandidateRankingProvider = .appleOnDevice
+        #expect(Preferences.llmCandidateRankingProvider == .appleOnDevice)
+        Preferences.llmCandidateRankingProvider = .openSource
+        #expect(Preferences.llmCandidateRankingProvider == .openSource)
+    }
+
+    @Test("Test LLM candidate ranking timeout bounds")
+    func testLLMCandidateRankingTimeoutMs() {
+        #expect(Preferences.llmCandidateRankingTimeoutMs == 12)
+        Preferences.llmCandidateRankingTimeoutMs = 50
+        #expect(Preferences.llmCandidateRankingTimeoutMs == 50)
+
+        Preferences.llmCandidateRankingTimeoutMs = 0
+        #expect(Preferences.llmCandidateRankingTimeoutMs == 1)
+
+        Preferences.llmCandidateRankingTimeoutMs = 201
+        #expect(Preferences.llmCandidateRankingTimeoutMs == 200)
+    }
+
+    @Test("Test LLM candidate ranking top N bounds")
+    func testLLMCandidateRankingTopN() {
+        #expect(Preferences.llmCandidateRankingTopN == 10)
+        Preferences.llmCandidateRankingTopN = 20
+        #expect(Preferences.llmCandidateRankingTopN == 20)
+
+        Preferences.llmCandidateRankingTopN = 0
+        #expect(Preferences.llmCandidateRankingTopN == 1)
+
+        Preferences.llmCandidateRankingTopN = 51
+        #expect(Preferences.llmCandidateRankingTopN == 50)
+    }
+
+    @Test("Test LLM candidate ranking auto preselect enabled flag")
+    func testLLMCandidateRankingAutoPreselectEnabled() {
+        #expect(Preferences.llmCandidateRankingAutoPreselectEnabled == false)
+        Preferences.llmCandidateRankingAutoPreselectEnabled = true
+        #expect(Preferences.llmCandidateRankingAutoPreselectEnabled == true)
+    }
+
 }
 
 final class CandidateKeyValidationTests {

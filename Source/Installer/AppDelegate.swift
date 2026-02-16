@@ -187,16 +187,33 @@ class AppDelegate: NSWindowController, NSApplicationDelegate {
             endAppWithDelay()
             return
         }
-        let cpTask = Process()
-        cpTask.launchPath = "/bin/cp"
-        cpTask.arguments = ["-R", targetBundle, (kDestinationPartial as NSString).expandingTildeInPath]
-        cpTask.launch()
-        cpTask.waitUntilExit()
+        let destinationPath = (kTargetPartialPath as NSString).expandingTildeInPath
+        let copyTask = Process()
+        copyTask.launchPath = "/usr/bin/ditto"
+        copyTask.arguments = ["--noqtn", targetBundle, destinationPath]
+        copyTask.launch()
+        copyTask.waitUntilExit()
 
-        if cpTask.terminationStatus != 0 {
+        if copyTask.terminationStatus != 0 {
             runAlertPanel(title: NSLocalizedString("Install Failed", comment: ""),
                           message: NSLocalizedString("Cannot copy the file to the destination.", comment: ""),
                           buttonTitle: NSLocalizedString("Cancel", comment: ""))
+            endAppWithDelay()
+            return
+        }
+
+        let verifyTask = Process()
+        verifyTask.launchPath = "/usr/bin/codesign"
+        verifyTask.arguments = ["--verify", "--deep", "--strict", destinationPath]
+        verifyTask.launch()
+        verifyTask.waitUntilExit()
+        if verifyTask.terminationStatus != 0 {
+            runAlertPanel(
+                title: NSLocalizedString("Install Failed", comment: ""),
+                message: NSLocalizedString(
+                    "The installed input method failed code signature verification.",
+                    comment: ""),
+                buttonTitle: NSLocalizedString("Cancel", comment: ""))
             endAppWithDelay()
             return
         }
@@ -243,13 +260,18 @@ class AppDelegate: NSWindowController, NSApplicationDelegate {
 
         var mainInputSourceEnabled = InputSourceHelper.inputSourceEnabled(for: inputSource!)
         if !mainInputSourceEnabled || isMacOS12OrAbove {
-            mainInputSourceEnabled = InputSourceHelper.enable(inputSource: inputSource!)
-            if (mainInputSourceEnabled) {
-                NSLog("Input method enabled: \(imeIdentifier)");
+            // Enable every input mode for this bundle so the source appears in the menu reliably.
+            mainInputSourceEnabled = InputSourceHelper.enableAllInputMode(for: imeIdentifier)
+            if !mainInputSourceEnabled {
+                mainInputSourceEnabled = InputSourceHelper.enable(inputSource: inputSource!)
+            }
+            if mainInputSourceEnabled {
+                NSLog("Input method enabled: \(imeIdentifier)")
             } else {
-                NSLog("Failed to enable input method: \(imeIdentifier)");
+                NSLog("Failed to enable input method: \(imeIdentifier)")
             }
         }
+        refreshTextInputAgents()
 
         if warning {
             runAlertPanel(title: NSLocalizedString("Attention", comment: ""), message: NSLocalizedString("McBopomofo is upgraded, but please log out or reboot for the new version to be fully functional.", comment: ""), buttonTitle: NSLocalizedString("OK", comment: ""))
@@ -319,5 +341,23 @@ class AppDelegate: NSWindowController, NSApplicationDelegate {
                 self?.updateAutoClosingMessage(seconds: counter)
             }
         }
+    }
+
+    private func refreshTextInputAgents() {
+        let targetPath = (kTargetPartialPath as NSString).expandingTildeInPath
+        let lsregisterPath =
+            "/System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister"
+
+        func run(_ launchPath: String, _ arguments: [String]) {
+            let task = Process()
+            task.launchPath = launchPath
+            task.arguments = arguments
+            task.launch()
+            task.waitUntilExit()
+        }
+
+        run(lsregisterPath, ["-f", "-R", "-trusted", targetPath])
+        run("/usr/bin/killall", ["TextInputMenuAgent"])
+        run("/usr/bin/killall", ["cfprefsd"])
     }
 }

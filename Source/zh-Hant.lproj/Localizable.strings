@@ -39,6 +39,10 @@
 
 "Reload User Phrases" = "重新載入使用者詞彙";
 
+"Log Candidate Ranking Stats" = "輸出選字排序統計";
+
+"Reset Candidate Ranking Stats" = "重設選字排序統計";
+
 "Failed to Create the User Phrase File" = "無法建立使用者詞彙檔案";
 
 "Please check the permission of the path at \"%@\"." = "請檢查以下路徑的寫入權限 \"%@\"。";
@@ -150,3 +154,7 @@
 "Only one column was found." = "一行應該有兩欄文字，這行只有一欄。";
 
 "Illegal NULL character was found." = "這一行包含了不合規則的 NULL 字元 (0x00)。";
+
+"Use LLM Candidate Ranking" = "使用 LLM 候選詞排序";
+
+"Auto-preselect top ranked candidate" = "自動預選並提交第一名候選詞";

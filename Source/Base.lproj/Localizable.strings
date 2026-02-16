@@ -39,6 +39,10 @@
 
 "Reload User Phrases" = "Reload User Phrases";
 
+"Log Candidate Ranking Stats" = "Log Candidate Ranking Stats";
+
+"Reset Candidate Ranking Stats" = "Reset Candidate Ranking Stats";
+
 "Failed to Create the User Phrase File" = "Failed to Create the User Phrase File";
 
 "Please check the permission of the path at \"%@\"." = "Please check the permission of the path at \"%@\".";
@@ -150,3 +154,7 @@
 "Only one column was found." = "Only one column was found.";
 
 "Illegal NULL character was found." = "Illegal NULL character was found.";
+
+"Use LLM Candidate Ranking" = "Use LLM Candidate Ranking";
+
+"Auto-preselect top ranked candidate" = "Auto-preselect top ranked candidate";

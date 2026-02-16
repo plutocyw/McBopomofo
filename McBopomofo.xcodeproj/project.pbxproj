@@ -95,6 +95,15 @@
 		D4F0BBE1279AF8B30071253C /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F0BBE0279AF8B30071253C /* AppDelegate.swift */; };
 		D4F0BBE4279B08900071253C /* BundleTranslocate.m in Sources */ = {isa = PBXBuildFile; fileRef = D4F0BBE3279B08900071253C /* BundleTranslocate.m */; };
 		D4F0BBE7279B14C20071253C /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = D4F0BBE9279B14C20071253C /* Credits.rtf */; };
+		E001A1B32F00100000AAA001 /* CandidateRankingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001A1B22F00100000AAA001 /* CandidateRankingModels.swift */; };
+		E001A1B52F00100100AAA001 /* CandidateRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001A1B42F00100100AAA001 /* CandidateRanker.swift */; };
+		E001A1B72F00100200AAA001 /* NoOpCandidateRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001A1B62F00100200AAA001 /* NoOpCandidateRanker.swift */; };
+		E001A1B92F00100300AAA001 /* CandidateRankingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001A1B82F00100300AAA001 /* CandidateRankingTests.swift */; };
+		E001A1BB2F00100400AAA001 /* CandidateRankerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001A1BA2F00100400AAA001 /* CandidateRankerFactory.swift */; };
+		E001A1BD2F00100500AAA001 /* CandidateRankingPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001A1BC2F00100500AAA001 /* CandidateRankingPipeline.swift */; };
+		E001A1BF2F00100600AAA001 /* TimeoutCandidateRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001A1BE2F00100600AAA001 /* TimeoutCandidateRanker.swift */; };
+		E001A1C12F00100700AAA001 /* AppleOnDeviceCandidateRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001A1C02F00100700AAA001 /* AppleOnDeviceCandidateRanker.swift */; };
+		E001A1C32F00100800AAA001 /* CandidateRankingStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001A1C22F00100800AAA001 /* CandidateRankingStats.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -250,6 +259,15 @@
 		D4F0BBE8279B14C20071253C /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = Base; path = Base.lproj/Credits.rtf; sourceTree = "<group>"; };
 		D4F0BBEA279B14CB0071253C /* en */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = en; path = en.lproj/Credits.rtf; sourceTree = "<group>"; };
 		D4F0BBEB279B14D00071253C /* zh-Hant */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = "zh-Hant"; path = "zh-Hant.lproj/Credits.rtf"; sourceTree = "<group>"; };
+		E001A1B22F00100000AAA001 /* CandidateRankingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateRankingModels.swift; sourceTree = "<group>"; };
+		E001A1B42F00100100AAA001 /* CandidateRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateRanker.swift; sourceTree = "<group>"; };
+		E001A1B62F00100200AAA001 /* NoOpCandidateRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoOpCandidateRanker.swift; sourceTree = "<group>"; };
+		E001A1B82F00100300AAA001 /* CandidateRankingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateRankingTests.swift; sourceTree = "<group>"; };
+		E001A1BA2F00100400AAA001 /* CandidateRankerFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateRankerFactory.swift; sourceTree = "<group>"; };
+		E001A1BC2F00100500AAA001 /* CandidateRankingPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateRankingPipeline.swift; sourceTree = "<group>"; };
+		E001A1BE2F00100600AAA001 /* TimeoutCandidateRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeoutCandidateRanker.swift; sourceTree = "<group>"; };
+		E001A1C02F00100700AAA001 /* AppleOnDeviceCandidateRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleOnDeviceCandidateRanker.swift; sourceTree = "<group>"; };
+		E001A1C22F00100800AAA001 /* CandidateRankingStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateRankingStats.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -316,6 +334,7 @@
 			children = (
 				6A38BBDD15FC115800A8A51F /* Data */,
 				6A0D4F1215FC0EB100ABF4B3 /* Engine */,
+				E001A1B12F00100000AAA001 /* CandidateRanking */,
 				6ACA41E715FC1D9000935EF6 /* Installer */,
 				6A0D4F4715FC0EB900ABF4B3 /* Resources */,
 				D4A13D5927A59D5C003BE359 /* InputMethodController.swift */,
@@ -495,6 +514,7 @@
 		D485D3B72796A8A000657FF3 /* McBopomofoTests */ = {
 			isa = PBXGroup;
 			children = (
+				E001A1B82F00100300AAA001 /* CandidateRankingTests.swift */,
 				D436E23E2CD20B9E00C6155D /* AssociatedPhrasesTests.swift */,
 				D47D73A327A5D43900255A50 /* KeyHandlerBopomofoTests.swift */,
 				D4A8E43527A9E982002F7A07 /* KeyHandlerPlainBopomofoTests.swift */,
@@ -507,6 +527,21 @@
 				D4C2A9852B4309D600113711 /* McBopomofoTests-Bridging-Header.h */,
 			);
 			path = McBopomofoTests;
+			sourceTree = "<group>";
+		};
+		E001A1B12F00100000AAA001 /* CandidateRanking */ = {
+			isa = PBXGroup;
+			children = (
+				E001A1C02F00100700AAA001 /* AppleOnDeviceCandidateRanker.swift */,
+				E001A1B42F00100100AAA001 /* CandidateRanker.swift */,
+				E001A1BA2F00100400AAA001 /* CandidateRankerFactory.swift */,
+				E001A1B22F00100000AAA001 /* CandidateRankingModels.swift */,
+				E001A1BC2F00100500AAA001 /* CandidateRankingPipeline.swift */,
+				E001A1C22F00100800AAA001 /* CandidateRankingStats.swift */,
+				E001A1B62F00100200AAA001 /* NoOpCandidateRanker.swift */,
+				E001A1BE2F00100600AAA001 /* TimeoutCandidateRanker.swift */,
+			);
+			path = CandidateRanking;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -568,7 +603,6 @@
 				6ACA41C715FC1D7500935EF6 /* Sources */,
 				6ACA41C815FC1D7500935EF6 /* Frameworks */,
 				6ACA41C915FC1D7500935EF6 /* Resources */,
-				6A225A2023679F5F00F685C6 /* ShellScript */,
 			);
 			buildRules = (
 			);
@@ -609,7 +643,7 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastSwiftUpdateCheck = 1320;
-				LastUpgradeCheck = 1510;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
 					6A0D4EA115FC0D2D00ABF4B3 = {
 						LastSwiftMigration = 1240;
@@ -706,27 +740,6 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
-/* Begin PBXShellScriptBuildPhase section */
-		6A225A2023679F5F00F685C6 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# Remove the README.md in the NotarizedArchives directory\nrm -f \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/NotarizedArchives/README.md\"\n";
-		};
-/* End PBXShellScriptBuildPhase section */
-
 /* Begin PBXSourcesBuildPhase section */
 		6A0D4E9E15FC0D2D00ABF4B3 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -743,6 +756,14 @@
 				D44FB74527915565003C80A6 /* Preferences.swift in Sources */,
 				6A660A702EAF371000D53D7B /* ByteBlockBackedDictionary.cpp in Sources */,
 				D4314F0D2ED3690F0071DD71 /* NumberInputHelper.swift in Sources */,
+				E001A1B52F00100100AAA001 /* CandidateRanker.swift in Sources */,
+				E001A1BB2F00100400AAA001 /* CandidateRankerFactory.swift in Sources */,
+				E001A1B32F00100000AAA001 /* CandidateRankingModels.swift in Sources */,
+				E001A1BD2F00100500AAA001 /* CandidateRankingPipeline.swift in Sources */,
+				E001A1C32F00100800AAA001 /* CandidateRankingStats.swift in Sources */,
+				E001A1B72F00100200AAA001 /* NoOpCandidateRanker.swift in Sources */,
+				E001A1BF2F00100600AAA001 /* TimeoutCandidateRanker.swift in Sources */,
+				E001A1C12F00100700AAA001 /* AppleOnDeviceCandidateRanker.swift in Sources */,
 				D4E569DC27A34D0E00AC2CEF /* KeyHandler.mm in Sources */,
 				6A4F5F982879E838008C4307 /* reading_grid.cpp in Sources */,
 				D47F7DD0278C0897002F9DD7 /* NonModalAlertWindowController.swift in Sources */,
@@ -778,6 +799,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E001A1B92F00100300AAA001 /* CandidateRankingTests.swift in Sources */,
 				D4A8E43627A9E982002F7A07 /* KeyHandlerPlainBopomofoTests.swift in Sources */,
 				D436E23F2CD20BA700C6155D /* AssociatedPhrasesTests.swift in Sources */,
 				D449AD5F2B393C00000C5812 /* InputMacroTests.swift in Sources */,
@@ -992,6 +1014,7 @@
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -1005,6 +1028,7 @@
 					"$(OTHER_CFLAGS)",
 					"-fcxx-modules",
 				);
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 			};
 			name = Debug;
 		};
@@ -1033,6 +1057,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -1045,6 +1070,7 @@
 					"$(OTHER_CFLAGS)",
 					"-fcxx-modules",
 				);
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 			};
 			name = Release;
@@ -1067,6 +1093,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
+				ENABLE_DEBUG_DYLIB = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -1232,10 +1259,15 @@
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = DZ3MKP7NC2;
+				ENABLE_DEBUG_DYLIB = NO;
+				ENABLE_HARDENED_RUNTIME = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -1260,8 +1292,9 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "org.openvanilla.McBopomofo.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_BUNDLE_IDENTIFIER = com.ipluto.mcbopomofoInstaller;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = macosx;
 				SWIFT_OBJC_BRIDGING_HEADER = "Source/Installer/McBopomofoInstaller-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -1280,11 +1313,15 @@
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = DZ3MKP7NC2;
+				ENABLE_HARDENED_RUNTIME = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
@@ -1301,8 +1338,9 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 11.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "org.openvanilla.McBopomofo.${PRODUCT_NAME:rfc1034identifier}";
+				PRODUCT_BUNDLE_IDENTIFIER = com.ipluto.mcbopomofoInstaller;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = macosx;
 				SWIFT_OBJC_BRIDGING_HEADER = "Source/Installer/McBopomofoInstaller-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
