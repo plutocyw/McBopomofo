@@ -46,7 +46,8 @@ struct ArchiveUtil {
         }
 
         let devModeAppBundlePath = (resourePath as NSString).appendingPathComponent(targetAppBundleName)
-        let count = notarizedArchivesContent.count
+        let zipArchives = notarizedArchivesContent.filter { $0.lowercased().hasSuffix(".zip") }
+        let count = zipArchives.count
         let notarizedArchiveExists = FileManager.default.fileExists(atPath: notarizedArchive)
         let devModeAppBundleExists = FileManager.default.fileExists(atPath: devModeAppBundlePath)
 
