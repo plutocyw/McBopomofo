@@ -758,7 +758,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Remove the README.md in the NotarizedArchives directory\nrm -f \"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/NotarizedArchives/README.md\"\n";
+			shellScript = "# Remove the README.md in the NotarizedArchives directory when writable\nreadme_path=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/NotarizedArchives/README.md\"\nif [ -w \"$readme_path\" ]; then\n  rm -f \"$readme_path\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
