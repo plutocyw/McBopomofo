@@ -91,11 +91,7 @@
 	<string>McBopomofo_1_Connection</string>
 	<key>InputMethodServerControllerClass</key>
 	<string>McBopomofoInputMethodController</string>
-	<key>InputMethodServerDataSourceClass</key>
-	<string>McBopomofoInputMethodController</string>
 	<key>InputMethodServerDelegateClass</key>
-	<string>McBopomofoInputMethodController</string>
-	<key>InputMethodSessionController</key>
 	<string>McBopomofoInputMethodController</string>
 	<key>InputMethodServerPreferencesWindowControllerClass</key>
 	<string>PreferencesWindowController</string>
