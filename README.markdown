@@ -16,6 +16,38 @@
 
 要注意的是 macOS 可能會限制同一次 login session 能 kill 同一個輸入法 process 的次數（安裝程式透過 kill input method process 來讓新版的輸入法生效）。如果安裝若干次後，發現程式修改的結果並沒有出現，或甚至輸入法已無法再選用，只要登出目前帳號再重新登入即可。
 
+## 這個分支和原版的差異
+
+此分支加入了「雲端 LLM 輸入緩衝校正」功能，目標是降低同音選字錯誤，並盡量不打斷原本輸入節奏。
+
+目前行為重點：
+
+- 只使用雲端 LLM（Google API），不使用 Apple on-device / open-source provider。
+- LLM 主要用於「整段 compose buffer 校正」，不是候選清單排序。
+- 輸入進行中不會每鍵觸發；會在使用者停頓一段時間後才呼叫。
+- 使用者進入方向鍵選字等手動修正流程時，會暫停自動校正；回到句尾繼續輸入後再恢復。
+
+## 如何使用 LLM 功能
+
+1. Build 並安裝輸入法（建議用 `McBopomofoInstaller` target）。
+2. 在輸入法偏好設定 `Advanced` 頁籤開啟：
+   - `Use Cloud LLM Buffer Correction`
+3. 設定雲端參數：
+   - `Cloud Endpoint`（預設為 Google Generative Language API）
+   - `Cloud Model`（例如 `gemini-2.5-flash-lite`、`gemini-2.5-flash`）
+   - `Google API Key`
+   - `Thinking Level`（可選）
+4. 依個人習慣調整：
+   - `LLM Pause Before Trigger (ms)`：輸入停頓多久後觸發校正。
+   - `LLM Trigger Mode`：連續觸發或段落結尾觸發。
+   - `LLM Timeout (ms)`：單次請求最長等待時間。
+
+補充：
+
+- `Google API Key` 欄位右側提供 `Show/Hide` 按鈕，方便檢查輸入是否正確。
+- 如需觀察實際請求與回應，可開啟 `Show LLM Debug Alert (Prompt/Response)`。
+- 如需快速確認是否有觸發，可開啟 `Show LLM Activity Indicator`。
+
 ## 社群公約
 
 歡迎小麥注音用戶回報問題與指教，也歡迎大家參與小麥注音開發。
