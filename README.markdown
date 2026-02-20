@@ -22,7 +22,6 @@
 
 目前行為重點：
 
-- 只使用雲端 LLM（Google API），不使用 Apple on-device / open-source provider。
 - LLM 主要用於「整段 compose buffer 校正」，不是候選清單排序。
 - 輸入進行中不會每鍵觸發；會在使用者停頓一段時間後才呼叫。
 - 使用者進入方向鍵選字等手動修正流程時，會暫停自動校正；回到句尾繼續輸入後再恢復。
@@ -32,15 +31,19 @@
 1. Build 並安裝輸入法（建議用 `McBopomofoInstaller` target）。
 2. 在輸入法偏好設定 `Advanced` 頁籤開啟：
    - `Use Cloud LLM Buffer Correction`
-3. 設定雲端參數：
-   - `Cloud Endpoint`（預設為 Google Generative Language API）
-   - `Cloud Model`（例如 `gemini-2.5-flash-lite`、`gemini-2.5-flash`）
-   - `Google API Key`
-   - `Thinking Level`（可選）
-4. 依個人習慣調整：
-   - `LLM Pause Before Trigger (ms)`：輸入停頓多久後觸發校正。
-   - `LLM Trigger Mode`：連續觸發或段落結尾觸發。
-   - `LLM Timeout (ms)`：單次請求最長等待時間。
+3. 取得 Google API Key：
+   - 可參考 Google 官方說明：[Get an API key](https://support.google.com/googleapi/answer/6158862?hl=en)
+4. 先套用推薦設定（可作為大多數使用者的起始值）：
+   - `Thinking Level`: `Off`
+   - `Google API Key`: 你的 Google API Key
+   - `Cloud Endpoint`: `https://generativelanguage.googleapis.com/v1beta`
+   - `Cloud Model`: `gemini-3-flash-preview`
+   - `LLM Trigger Mode`: `Continuous`
+   - `LLM Pause Before Trigger (ms)`: `600`
+   - `LLM Timeout (ms)`: `2500`
+   - `Show LLM Activity Indicator`: `Off`
+   - `Show LLM Debug Alert (Prompt/Response)`: `Off`
+   - `Use Cloud LLM Buffer Correction`: `On`
 
 補充：
 
