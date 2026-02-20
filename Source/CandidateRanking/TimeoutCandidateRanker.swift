@@ -48,9 +48,11 @@ struct TimeoutCandidateRanker: CandidateRanker {
         let elapsedMs = Int(elapsedNs / 1_000_000)
         guard elapsedMs <= timeoutMs else {
             CandidateRankingStats.record(.timeoutFallback)
+            let timeoutReason = "timeoutGuardExceeded(\(elapsedMs)ms>\(timeoutMs)ms)"
             return CandidateRankingResult(
                 token: request.token,
-                orderedCandidateIndices: Array(request.candidates.indices)
+                orderedCandidateIndices: Array(request.candidates.indices),
+                debugTrace: result.debugTrace?.withFallbackReason(timeoutReason)
             )
         }
         return result

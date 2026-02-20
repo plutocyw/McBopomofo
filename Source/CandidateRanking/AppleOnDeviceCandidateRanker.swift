@@ -122,10 +122,14 @@ struct AppleOnDeviceCandidateRanker: CandidateRanker {
         return fallbackResult(for: request)
     }
 
-    private func fallbackResult(for request: CandidateRankingRequest) -> CandidateRankingResult {
+    private func fallbackResult(
+        for request: CandidateRankingRequest,
+        debugTrace: CandidateRankingDebugTrace? = nil
+    ) -> CandidateRankingResult {
         CandidateRankingResult(
             token: request.token,
-            orderedCandidateIndices: Array(request.candidates.indices)
+            orderedCandidateIndices: Array(request.candidates.indices),
+            debugTrace: debugTrace
         )
     }
 }
@@ -135,8 +139,20 @@ struct AppleOnDeviceCandidateRanker: CandidateRanker {
 extension AppleOnDeviceCandidateRanker {
     func rankWithFoundationModels(request: CandidateRankingRequest) -> CandidateRankingResult {
         let model = SystemLanguageModel.default
+        let prompt = makePrompt(for: request)
+        let startNs = DispatchTime.now().uptimeNanoseconds
         guard model.isAvailable else {
-            return fallbackResult(for: request)
+            return fallbackResult(
+                for: request,
+                debugTrace: CandidateRankingDebugTrace(
+                    provider: "AppleOnDevice",
+                    prompt: prompt,
+                    response: nil,
+                    elapsedMs: 0,
+                    fallbackReason: "modelUnavailable",
+                    errorDescription: nil
+                )
+            )
         }
 
         let instructions =
@@ -146,7 +162,6 @@ extension AppleOnDeviceCandidateRanker {
             Do not include any other text.
             """
         let session = LanguageModelSession(model: model, tools: [], instructions: instructions)
-        let prompt = makePrompt(for: request)
         let options = GenerationOptions(
             sampling: .greedy,
             temperature: 0,
@@ -155,6 +170,7 @@ extension AppleOnDeviceCandidateRanker {
 
         let semaphore = DispatchSemaphore(value: 0)
         var responseText: String?
+        var responseErrorDescription: String?
         Task {
             defer { semaphore.signal() }
             do {
@@ -162,9 +178,11 @@ extension AppleOnDeviceCandidateRanker {
                 responseText = response.content
             } catch {
                 responseText = nil
+                responseErrorDescription = "\(error)"
             }
         }
         semaphore.wait()
+        let elapsedMs = Int((DispatchTime.now().uptimeNanoseconds - startNs) / 1_000_000)
 
         guard
             let responseText,
@@ -176,15 +194,34 @@ extension AppleOnDeviceCandidateRanker {
             if responseText != nil {
                 CandidateRankingStats.record(.parserFallback)
             }
-            return fallbackResult(for: request)
+            return fallbackResult(
+                for: request,
+                debugTrace: CandidateRankingDebugTrace(
+                    provider: "AppleOnDevice",
+                    prompt: prompt,
+                    response: responseText,
+                    elapsedMs: elapsedMs,
+                    fallbackReason: responseText == nil ? "requestFailed" : "parserFallback",
+                    errorDescription: responseErrorDescription
+                )
+            )
         }
 
         let result = CandidateRankingResult(
             token: request.token,
-            orderedCandidateIndices: orderedIndices
+            orderedCandidateIndices: orderedIndices,
+            debugTrace: CandidateRankingDebugTrace(
+                provider: "AppleOnDevice",
+                prompt: prompt,
+                response: responseText,
+                elapsedMs: elapsedMs,
+                fallbackReason: nil,
+                errorDescription: nil
+            )
         )
         guard result.isValidPermutation(candidateCount: request.candidates.count) else {
-            return fallbackResult(for: request)
+            let trace = result.debugTrace?.withFallbackReason("invalidPermutation")
+            return fallbackResult(for: request, debugTrace: trace)
         }
         return result
     }

@@ -23,6 +23,26 @@
 
 import Foundation
 
+struct CandidateRankingDebugTrace {
+    let provider: String
+    let prompt: String
+    let response: String?
+    let elapsedMs: Int
+    let fallbackReason: String?
+    let errorDescription: String?
+
+    func withFallbackReason(_ reason: String) -> CandidateRankingDebugTrace {
+        CandidateRankingDebugTrace(
+            provider: provider,
+            prompt: prompt,
+            response: response,
+            elapsedMs: elapsedMs,
+            fallbackReason: reason,
+            errorDescription: errorDescription
+        )
+    }
+}
+
 struct CandidateRankingContextToken: Equatable, Hashable {
     let id: UUID
 
@@ -50,15 +70,18 @@ struct CandidateRankingResult {
     let token: CandidateRankingContextToken
     let orderedCandidateIndices: [Int]
     let scoresByCandidateIndex: [Int: Double]
+    let debugTrace: CandidateRankingDebugTrace?
 
     init(
         token: CandidateRankingContextToken,
         orderedCandidateIndices: [Int],
-        scoresByCandidateIndex: [Int: Double] = [:]
+        scoresByCandidateIndex: [Int: Double] = [:],
+        debugTrace: CandidateRankingDebugTrace? = nil
     ) {
         self.token = token
         self.orderedCandidateIndices = orderedCandidateIndices
         self.scoresByCandidateIndex = scoresByCandidateIndex
+        self.debugTrace = debugTrace
     }
 
     func isValidPermutation(candidateCount: Int) -> Bool {

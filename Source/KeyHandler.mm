@@ -2210,6 +2210,124 @@ InputMode InputModePlainBopomofo = @"org.openvanilla.inputmethod.McBopomofo.Plai
     return newState;
 }
 
+- (nullable InputState *)buildCandidateStateForInputtingWithUseVerticalMode:(BOOL)useVerticalMode
+{
+    InputStateInputting *inputting = (InputStateInputting *)[self buildInputtingState];
+    if (!inputting.composingBuffer.length) {
+        return nil;
+    }
+
+    size_t originalCursorIndex = _grid->cursor();
+    InputStateChoosingCandidate *choosing =
+        [self _buildCandidateStateFromInputtingState:inputting useVerticalMode:useVerticalMode];
+    choosing.originalCursorIndex = originalCursorIndex;
+    return choosing;
+}
+
+- (NSArray<NSDictionary<NSString *, id> *> *)buildSegmentCandidateContexts
+{
+    NSMutableArray<NSDictionary<NSString *, id> *> *contexts = [[NSMutableArray alloc] init];
+    if (_grid->length() == 0) {
+        return contexts;
+    }
+
+    [self _walk];
+    size_t runningCursor = 0;
+    NSInteger segmentIndex = 0;
+
+    for (const auto& node : _latestWalk.nodes) {
+        if (node == nullptr) {
+            continue;
+        }
+        size_t startCursor = runningCursor;
+        runningCursor += node->spanningLength();
+
+        auto candidates = _grid->candidatesAt(startCursor);
+        if (candidates.size() == 0) {
+            continue;
+        }
+
+        std::unordered_map<std::string, size_t> valueCountMap;
+        for (const auto& c : candidates) {
+            ++valueCountMap[c.value];
+        }
+
+        NSMutableArray *candidatesArray = [[NSMutableArray alloc] init];
+        for (const auto& c : candidates) {
+            std::string displayText = c.value;
+            if (valueCountMap[displayText] > 1) {
+                displayText += " (";
+                std::string reading = c.reading;
+                std::replace(reading.begin(), reading.end(), '-', ' ');
+                displayText += reading;
+                displayText += ")";
+            }
+
+            NSString *r = @(c.reading.c_str());
+            NSString *v = @(c.value.c_str());
+            NSString *rv = @(c.rawValue.c_str());
+            NSString *dt = @(displayText.c_str());
+            InputStateCandidate *candidate = [[InputStateCandidate alloc] initWithReading:r value:v displayText:dt rawValue:rv];
+            [candidatesArray addObject:candidate];
+        }
+
+        NSDictionary<NSString *, id> *context = @{
+            @"segmentIndex": @(segmentIndex),
+            @"startCursor": @(startCursor),
+            @"reading": @(node->reading().c_str()),
+            @"currentValue": @(node->value().c_str()),
+            @"candidates": candidatesArray,
+        };
+        [contexts addObject:context];
+        ++segmentIndex;
+    }
+
+    return contexts;
+}
+
+- (BOOL)applySegmentCandidateOverridesWithSelections:(NSArray<NSNumber *> *)selections
+{
+    if (_grid->length() == 0) {
+        return NO;
+    }
+
+    [self _walk];
+    std::vector<size_t> startCursors;
+    size_t runningCursor = 0;
+    for (const auto& node : _latestWalk.nodes) {
+        if (node == nullptr) {
+            continue;
+        }
+        startCursors.push_back(runningCursor);
+        runningCursor += node->spanningLength();
+    }
+
+    if (selections.count != startCursors.size()) {
+        return NO;
+    }
+
+    size_t originalCursorIndex = _grid->cursor();
+    for (NSUInteger i = 0; i < selections.count; ++i) {
+        NSInteger selectedIndex = selections[i].integerValue;
+        auto candidates = _grid->candidatesAt(startCursors[i]);
+        if (selectedIndex < 0 || selectedIndex >= (NSInteger)candidates.size()) {
+            _grid->setCursor(originalCursorIndex);
+            [self _walk];
+            return NO;
+        }
+        Formosa::Gramambular2::ReadingGrid::Candidate selected = candidates[(size_t)selectedIndex];
+        if (!_grid->overrideCandidate(startCursors[i], selected)) {
+            _grid->setCursor(originalCursorIndex);
+            [self _walk];
+            return NO;
+        }
+    }
+
+    [self _walk];
+    _grid->setCursor(originalCursorIndex);
+    return YES;
+}
+
 - (void)_walk
 {
     _latestWalk = _grid->walk();

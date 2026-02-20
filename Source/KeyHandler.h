@@ -71,6 +71,12 @@ extern InputMode InputModePlainBopomofo;
     NS_SWIFT_NAME(handleForceCommit(stateCallback:));
 
 - (InputState *)buildInputtingState;
+- (nullable InputState *)buildCandidateStateForInputtingWithUseVerticalMode:(BOOL)useVerticalMode
+    NS_SWIFT_NAME(buildCandidateStateForInputting(useVerticalMode:));
+- (NSArray<NSDictionary<NSString *, id> *> *)buildSegmentCandidateContexts
+    NS_SWIFT_NAME(buildSegmentCandidateContexts());
+- (BOOL)applySegmentCandidateOverridesWithSelections:(NSArray<NSNumber *> *)selections
+    NS_SWIFT_NAME(applySegmentCandidateOverrides(selections:));
 
 - (nullable InputState *)buildAssociatedPhrasePlainStateWithReading:(NSString *)reading
                                                               value:(NSString *)value

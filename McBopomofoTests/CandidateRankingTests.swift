@@ -116,34 +116,15 @@ struct CandidateRankingTests {
     @Test("Factory returns no-op when disabled")
     func factoryReturnsNoOpWhenDisabled() {
         let ranker = CandidateRankerFactory.makeCandidateRanker(
-            isEnabled: false,
-            provider: .appleOnDevice
+            isEnabled: false
         )
         #expect(type(of: ranker) == NoOpCandidateRanker.self)
     }
 
-    @Test("Factory returns no-op when provider is disabled")
-    func factoryReturnsNoOpWhenProviderDisabled() {
-        let ranker = CandidateRankerFactory.makeCandidateRanker(
-            isEnabled: true,
-            provider: .disabled
-        )
+    @Test("Factory returns no-op when enabled")
+    func factoryReturnsNoOpWhenEnabled() {
+        let ranker = CandidateRankerFactory.makeCandidateRanker(isEnabled: true)
         #expect(type(of: ranker) == NoOpCandidateRanker.self)
-    }
-
-    @Test("Factory wires provider-specific rankers")
-    func factoryWiresProviderSpecificRankers() {
-        let openSourceRanker = CandidateRankerFactory.makeCandidateRanker(
-            isEnabled: true,
-            provider: .openSource
-        )
-        #expect(type(of: openSourceRanker) == NoOpCandidateRanker.self)
-
-        let appleRanker = CandidateRankerFactory.makeCandidateRanker(
-            isEnabled: true,
-            provider: .appleOnDevice
-        )
-        #expect(type(of: appleRanker) == AppleOnDeviceCandidateRanker.self)
     }
 
     @Test("ChoosingCandidate gets unique ranking token by default")

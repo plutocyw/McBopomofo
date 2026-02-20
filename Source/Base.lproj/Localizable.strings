@@ -155,6 +155,37 @@
 
 "Illegal NULL character was found." = "Illegal NULL character was found.";
 
-"Use LLM Candidate Ranking" = "Use LLM Candidate Ranking";
+"Use LLM Candidate Ranking" = "Use Cloud LLM Buffer Correction";
 
 "Auto-preselect top ranked candidate" = "Auto-preselect top ranked candidate";
+
+"LLM Provider" = "LLM Provider";
+"Disabled" = "Disabled";
+"Apple On-Device" = "Apple On-Device";
+"Open Source" = "Open Source";
+"Cloud (Google)" = "Cloud (Google)";
+
+"LLM Timeout (ms)" = "LLM Timeout (ms)";
+"LLM Pause Before Trigger (ms)" = "LLM Pause Before Trigger (ms)";
+"LLM Trigger Mode" = "LLM Trigger Mode";
+"Continuous" = "Continuous";
+"Segment End (Punctuation/Space)" = "Segment End (Punctuation/Space)";
+
+"Show LLM Activity Indicator" = "Show LLM Activity Indicator";
+"Show LLM Debug Alert (Prompt/Response)" = "Show LLM Debug Alert (Prompt/Response)";
+"Open-Source Model" = "Open-Source Model";
+"Open-Source Endpoint" = "Open-Source Endpoint";
+"Cloud Model" = "Cloud Model";
+"Cloud Endpoint" = "Cloud Endpoint";
+"Google API Key" = "Google API Key";
+"Thinking Level" = "Thinking Level";
+"Off" = "Off";
+"Low" = "Low";
+"Medium" = "Medium";
+"High" = "High";
+
+"Candidate Ranking Stats" = "Candidate Ranking Stats";
+"LLM Ranking Debug" = "LLM Ranking Debug";
+
+"Show" = "Show";
+"Hide" = "Hide";

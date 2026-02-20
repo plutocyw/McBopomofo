@@ -39,7 +39,7 @@ private let kWindowTitleHeight: CGFloat = 78
 @objc(PreferencesWindowController) class PreferencesWindowController: NSWindowController {
     private let kLLMControlBottomInset: CGFloat = 12
     private let kLLMControlSpacing: CGFloat = 8
-    private let kLLMControlExtraViewHeight: CGFloat = 46
+    private let kLLMControlExtraViewHeight: CGFloat = 372
 
     @IBOutlet weak var fontSizePopUpButton: NSPopUpButton!
     @IBOutlet weak var basisKeyboardLayoutButton: NSPopUpButton!
@@ -56,7 +56,27 @@ private let kWindowTitleHeight: CGFloat = 78
 
     @IBOutlet weak var addPhraseHookPathField: NSTextField!
     private var llmRankingEnabledButton: NSButton?
-    private var llmAutoPreselectEnabledButton: NSButton?
+    private var llmActivityIndicatorButton: NSButton?
+    private var llmDebugAlertButton: NSButton?
+    private var llmTimeoutLabel: NSTextField?
+    private var llmTimeoutTextField: NSTextField?
+    private var llmTimeoutStepper: NSStepper?
+    private var llmPauseLabel: NSTextField?
+    private var llmPauseTextField: NSTextField?
+    private var llmPauseStepper: NSStepper?
+    private var llmInputtingTriggerModeLabel: NSTextField?
+    private var llmInputtingTriggerModePopUpButton: NSPopUpButton?
+    private var llmGoogleModelLabel: NSTextField?
+    private var llmGoogleModelTextField: NSTextField?
+    private var llmGoogleEndpointLabel: NSTextField?
+    private var llmGoogleEndpointTextField: NSTextField?
+    private var llmGoogleAPIKeyLabel: NSTextField?
+    private var llmGoogleAPIKeySecureTextField: NSSecureTextField?
+    private var llmGoogleAPIKeyPlainTextField: NSTextField?
+    private var llmGoogleAPIKeyRevealButton: NSButton?
+    private var llmGoogleAPIKeyRevealed = false
+    private var llmGoogleThinkingLevelLabel: NSTextField?
+    private var llmGoogleThinkingLevelPopUpButton: NSPopUpButton?
 
     override func awakeFromNib() {
         let toolbar = NSToolbar(identifier: "preference toolbar")
@@ -313,13 +333,90 @@ private let kWindowTitleHeight: CGFloat = 78
         refreshLLMControlsState()
     }
 
-    @objc private func toggleLLMAutoPreselect(_ sender: NSButton) {
-        Preferences.llmCandidateRankingAutoPreselectEnabled = (sender.state == .on)
+    @objc private func toggleLLMActivityIndicator(_ sender: NSButton) {
+        Preferences.llmShowActivityIndicator = (sender.state == .on)
+        refreshLLMControlsState()
+    }
+
+    @objc private func toggleLLMDebugAlert(_ sender: NSButton) {
+        Preferences.llmShowDebugAlert = (sender.state == .on)
+        refreshLLMControlsState()
+    }
+
+    @objc private func changeLLMTimeoutTextField(_ sender: NSTextField) {
+        Preferences.llmCandidateRankingTimeoutMs = sender.integerValue
+        refreshLLMControlsState()
+    }
+
+    @objc private func changeLLMTimeoutStepper(_ sender: NSStepper) {
+        Preferences.llmCandidateRankingTimeoutMs = sender.integerValue
+        refreshLLMControlsState()
+    }
+
+    @objc private func changeLLMPauseTextField(_ sender: NSTextField) {
+        Preferences.llmInputtingPauseMs = sender.integerValue
+        refreshLLMControlsState()
+    }
+
+    @objc private func changeLLMPauseStepper(_ sender: NSStepper) {
+        Preferences.llmInputtingPauseMs = sender.integerValue
+        refreshLLMControlsState()
+    }
+
+    @objc private func changeLLMInputtingTriggerMode(_ sender: NSPopUpButton) {
+        guard let selectedItem = sender.selectedItem else {
+            return
+        }
+        let mode = LLMInputtingTriggerMode(rawValue: selectedItem.tag) ?? .continuous
+        Preferences.llmInputtingTriggerMode = mode
+        refreshLLMControlsState()
+    }
+
+    @objc private func changeLLMGoogleModel(_ sender: NSTextField) {
+        let text = sender.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        Preferences.llmGoogleModelName = text.isEmpty ? "gemini-2.5-flash-lite" : text
+        refreshLLMControlsState()
+    }
+
+    @objc private func changeLLMGoogleEndpoint(_ sender: NSTextField) {
+        let text = sender.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        Preferences.llmGoogleEndpoint =
+            text.isEmpty ? "https://generativelanguage.googleapis.com/v1beta" : text
+        refreshLLMControlsState()
+    }
+
+    @objc private func changeLLMGoogleAPIKey(_ sender: NSTextField) {
+        Preferences.llmGoogleAPIKey = sender.stringValue.trimmingCharacters(
+            in: .whitespacesAndNewlines)
+        refreshLLMControlsState()
+    }
+
+    @objc private func toggleLLMGoogleAPIKeyVisibility(_ sender: NSButton) {
+        llmGoogleAPIKeyRevealed.toggle()
+        refreshLLMControlsState()
+    }
+
+    @objc private func changeLLMGoogleThinkingLevel(_ sender: NSPopUpButton) {
+        guard let selectedItem = sender.selectedItem else {
+            return
+        }
+        Preferences.llmGoogleThinkingLevel =
+            LLMGoogleThinkingLevel(rawValue: selectedItem.tag) ?? .off
         refreshLLMControlsState()
     }
 
     private func configureLLMControls() {
-        if llmRankingEnabledButton != nil || llmAutoPreselectEnabledButton != nil {
+        if llmRankingEnabledButton != nil
+            || llmTimeoutLabel != nil || llmTimeoutTextField != nil || llmTimeoutStepper != nil
+            || llmPauseLabel != nil || llmPauseTextField != nil || llmPauseStepper != nil
+            || llmInputtingTriggerModeLabel != nil || llmInputtingTriggerModePopUpButton != nil
+            || llmActivityIndicatorButton != nil || llmDebugAlertButton != nil
+            || llmGoogleModelLabel != nil || llmGoogleModelTextField != nil
+            || llmGoogleEndpointLabel != nil || llmGoogleEndpointTextField != nil
+            || llmGoogleAPIKeyLabel != nil || llmGoogleAPIKeySecureTextField != nil
+            || llmGoogleAPIKeyPlainTextField != nil || llmGoogleAPIKeyRevealButton != nil
+            || llmGoogleThinkingLevelLabel != nil || llmGoogleThinkingLevelPopUpButton != nil
+        {
             refreshLLMControlsState()
             return
         }
@@ -334,41 +431,327 @@ private let kWindowTitleHeight: CGFloat = 78
         rankingButton.target = self
         rankingButton.action = #selector(toggleLLMCandidateRankingEnabled(_:))
 
-        let autoPreselectButton = NSButton(checkboxWithTitle: "", target: nil, action: nil)
-        autoPreselectButton.translatesAutoresizingMaskIntoConstraints = false
-        autoPreselectButton.title = NSLocalizedString(
-            "Auto-preselect top ranked candidate", comment: "")
-        autoPreselectButton.target = self
-        autoPreselectButton.action = #selector(toggleLLMAutoPreselect(_:))
+        let activityIndicatorButton = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+        activityIndicatorButton.translatesAutoresizingMaskIntoConstraints = false
+        activityIndicatorButton.title = NSLocalizedString("Show LLM Activity Indicator", comment: "")
+        activityIndicatorButton.target = self
+        activityIndicatorButton.action = #selector(toggleLLMActivityIndicator(_:))
+
+        let debugAlertButton = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+        debugAlertButton.translatesAutoresizingMaskIntoConstraints = false
+        debugAlertButton.title = NSLocalizedString("Show LLM Debug Alert (Prompt/Response)", comment: "")
+        debugAlertButton.target = self
+        debugAlertButton.action = #selector(toggleLLMDebugAlert(_:))
+
+        let timeoutLabel = NSTextField(labelWithString: "")
+        timeoutLabel.translatesAutoresizingMaskIntoConstraints = false
+        timeoutLabel.stringValue = NSLocalizedString("LLM Timeout (ms)", comment: "")
+
+        let timeoutTextField = NSTextField(frame: .zero)
+        timeoutTextField.translatesAutoresizingMaskIntoConstraints = false
+        timeoutTextField.alignment = .right
+        timeoutTextField.target = self
+        timeoutTextField.action = #selector(changeLLMTimeoutTextField(_:))
+
+        let timeoutStepper = NSStepper(frame: .zero)
+        timeoutStepper.translatesAutoresizingMaskIntoConstraints = false
+        timeoutStepper.target = self
+        timeoutStepper.action = #selector(changeLLMTimeoutStepper(_:))
+        timeoutStepper.minValue = 1
+        timeoutStepper.maxValue = 5000
+        timeoutStepper.increment = 1
+
+        let pauseLabel = NSTextField(labelWithString: "")
+        pauseLabel.translatesAutoresizingMaskIntoConstraints = false
+        pauseLabel.stringValue = NSLocalizedString("LLM Pause Before Trigger (ms)", comment: "")
+
+        let pauseTextField = NSTextField(frame: .zero)
+        pauseTextField.translatesAutoresizingMaskIntoConstraints = false
+        pauseTextField.alignment = .right
+        pauseTextField.target = self
+        pauseTextField.action = #selector(changeLLMPauseTextField(_:))
+
+        let pauseStepper = NSStepper(frame: .zero)
+        pauseStepper.translatesAutoresizingMaskIntoConstraints = false
+        pauseStepper.target = self
+        pauseStepper.action = #selector(changeLLMPauseStepper(_:))
+        pauseStepper.minValue = 100
+        pauseStepper.maxValue = 3000
+        pauseStepper.increment = 50
+
+        let triggerModeLabel = NSTextField(labelWithString: "")
+        triggerModeLabel.translatesAutoresizingMaskIntoConstraints = false
+        triggerModeLabel.stringValue = NSLocalizedString("LLM Trigger Mode", comment: "")
+
+        let triggerModePopUpButton = NSPopUpButton(frame: .zero, pullsDown: false)
+        triggerModePopUpButton.translatesAutoresizingMaskIntoConstraints = false
+        triggerModePopUpButton.target = self
+        triggerModePopUpButton.action = #selector(changeLLMInputtingTriggerMode(_:))
+        triggerModePopUpButton.removeAllItems()
+        triggerModePopUpButton.addItem(
+            withTitle: NSLocalizedString("Continuous", comment: ""))
+        triggerModePopUpButton.lastItem?.tag = LLMInputtingTriggerMode.continuous.rawValue
+        triggerModePopUpButton.addItem(
+            withTitle: NSLocalizedString("Segment End (Punctuation/Space)", comment: ""))
+        triggerModePopUpButton.lastItem?.tag = LLMInputtingTriggerMode.segmentEnd.rawValue
+
+        let googleModelLabel = NSTextField(labelWithString: "")
+        googleModelLabel.translatesAutoresizingMaskIntoConstraints = false
+        googleModelLabel.stringValue = NSLocalizedString("Cloud Model", comment: "")
+
+        let googleModelTextField = NSTextField(frame: .zero)
+        googleModelTextField.translatesAutoresizingMaskIntoConstraints = false
+        googleModelTextField.target = self
+        googleModelTextField.action = #selector(changeLLMGoogleModel(_:))
+
+        let googleEndpointLabel = NSTextField(labelWithString: "")
+        googleEndpointLabel.translatesAutoresizingMaskIntoConstraints = false
+        googleEndpointLabel.stringValue = NSLocalizedString("Cloud Endpoint", comment: "")
+
+        let googleEndpointTextField = NSTextField(frame: .zero)
+        googleEndpointTextField.translatesAutoresizingMaskIntoConstraints = false
+        googleEndpointTextField.target = self
+        googleEndpointTextField.action = #selector(changeLLMGoogleEndpoint(_:))
+
+        let googleAPIKeyLabel = NSTextField(labelWithString: "")
+        googleAPIKeyLabel.translatesAutoresizingMaskIntoConstraints = false
+        googleAPIKeyLabel.stringValue = NSLocalizedString("Google API Key", comment: "")
+
+        let googleAPIKeySecureTextField = NSSecureTextField(frame: .zero)
+        googleAPIKeySecureTextField.translatesAutoresizingMaskIntoConstraints = false
+        googleAPIKeySecureTextField.target = self
+        googleAPIKeySecureTextField.action = #selector(changeLLMGoogleAPIKey(_:))
+
+        let googleAPIKeyPlainTextField = NSTextField(frame: .zero)
+        googleAPIKeyPlainTextField.translatesAutoresizingMaskIntoConstraints = false
+        googleAPIKeyPlainTextField.target = self
+        googleAPIKeyPlainTextField.action = #selector(changeLLMGoogleAPIKey(_:))
+
+        let googleAPIKeyRevealButton = NSButton(title: "", target: nil, action: nil)
+        googleAPIKeyRevealButton.translatesAutoresizingMaskIntoConstraints = false
+        googleAPIKeyRevealButton.setButtonType(.momentaryPushIn)
+        googleAPIKeyRevealButton.bezelStyle = .rounded
+        googleAPIKeyRevealButton.target = self
+        googleAPIKeyRevealButton.action = #selector(toggleLLMGoogleAPIKeyVisibility(_:))
+
+        let googleThinkingLevelLabel = NSTextField(labelWithString: "")
+        googleThinkingLevelLabel.translatesAutoresizingMaskIntoConstraints = false
+        googleThinkingLevelLabel.stringValue = NSLocalizedString("Thinking Level", comment: "")
+
+        let googleThinkingLevelPopUpButton = NSPopUpButton(frame: .zero, pullsDown: false)
+        googleThinkingLevelPopUpButton.translatesAutoresizingMaskIntoConstraints = false
+        googleThinkingLevelPopUpButton.target = self
+        googleThinkingLevelPopUpButton.action = #selector(changeLLMGoogleThinkingLevel(_:))
+        googleThinkingLevelPopUpButton.removeAllItems()
+        googleThinkingLevelPopUpButton.addItem(withTitle: NSLocalizedString("Off", comment: ""))
+        googleThinkingLevelPopUpButton.lastItem?.tag = LLMGoogleThinkingLevel.off.rawValue
+        googleThinkingLevelPopUpButton.addItem(withTitle: NSLocalizedString("Low", comment: ""))
+        googleThinkingLevelPopUpButton.lastItem?.tag = LLMGoogleThinkingLevel.low.rawValue
+        googleThinkingLevelPopUpButton.addItem(withTitle: NSLocalizedString("Medium", comment: ""))
+        googleThinkingLevelPopUpButton.lastItem?.tag = LLMGoogleThinkingLevel.medium.rawValue
+        googleThinkingLevelPopUpButton.addItem(withTitle: NSLocalizedString("High", comment: ""))
+        googleThinkingLevelPopUpButton.lastItem?.tag = LLMGoogleThinkingLevel.high.rawValue
 
         advancedSettingsView.addSubview(rankingButton)
-        advancedSettingsView.addSubview(autoPreselectButton)
+        advancedSettingsView.addSubview(activityIndicatorButton)
+        advancedSettingsView.addSubview(debugAlertButton)
+        advancedSettingsView.addSubview(timeoutLabel)
+        advancedSettingsView.addSubview(timeoutTextField)
+        advancedSettingsView.addSubview(timeoutStepper)
+        advancedSettingsView.addSubview(pauseLabel)
+        advancedSettingsView.addSubview(pauseTextField)
+        advancedSettingsView.addSubview(pauseStepper)
+        advancedSettingsView.addSubview(triggerModeLabel)
+        advancedSettingsView.addSubview(triggerModePopUpButton)
+        advancedSettingsView.addSubview(googleModelLabel)
+        advancedSettingsView.addSubview(googleModelTextField)
+        advancedSettingsView.addSubview(googleEndpointLabel)
+        advancedSettingsView.addSubview(googleEndpointTextField)
+        advancedSettingsView.addSubview(googleAPIKeyLabel)
+        advancedSettingsView.addSubview(googleAPIKeySecureTextField)
+        advancedSettingsView.addSubview(googleAPIKeyPlainTextField)
+        advancedSettingsView.addSubview(googleAPIKeyRevealButton)
+        advancedSettingsView.addSubview(googleThinkingLevelLabel)
+        advancedSettingsView.addSubview(googleThinkingLevelPopUpButton)
 
         NSLayoutConstraint.activate([
-            autoPreselectButton.leadingAnchor.constraint(
+            rankingButton.leadingAnchor.constraint(
                 equalTo: advancedSettingsView.leadingAnchor, constant: 20),
-            autoPreselectButton.bottomAnchor.constraint(
+            rankingButton.bottomAnchor.constraint(
                 equalTo: advancedSettingsView.bottomAnchor, constant: -kLLMControlBottomInset),
-            autoPreselectButton.trailingAnchor.constraint(
+            rankingButton.trailingAnchor.constraint(
                 lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
 
-            rankingButton.leadingAnchor.constraint(equalTo: autoPreselectButton.leadingAnchor),
-            rankingButton.bottomAnchor.constraint(
-                equalTo: autoPreselectButton.topAnchor, constant: -kLLMControlSpacing),
-            rankingButton.trailingAnchor.constraint(
+            debugAlertButton.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
+            debugAlertButton.bottomAnchor.constraint(
+                equalTo: rankingButton.topAnchor, constant: -kLLMControlSpacing),
+            debugAlertButton.trailingAnchor.constraint(
+                lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+
+            activityIndicatorButton.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
+            activityIndicatorButton.bottomAnchor.constraint(
+                equalTo: debugAlertButton.topAnchor, constant: -kLLMControlSpacing),
+            activityIndicatorButton.trailingAnchor.constraint(
+                lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+
+            timeoutLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
+            timeoutLabel.bottomAnchor.constraint(
+                equalTo: activityIndicatorButton.topAnchor, constant: -kLLMControlSpacing),
+
+            timeoutStepper.trailingAnchor.constraint(
+                lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+            timeoutStepper.centerYAnchor.constraint(equalTo: timeoutLabel.centerYAnchor),
+
+            timeoutTextField.widthAnchor.constraint(equalToConstant: 56),
+            timeoutTextField.trailingAnchor.constraint(
+                equalTo: timeoutStepper.leadingAnchor, constant: -8),
+            timeoutTextField.centerYAnchor.constraint(equalTo: timeoutLabel.centerYAnchor),
+
+            pauseLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
+            pauseLabel.bottomAnchor.constraint(
+                equalTo: timeoutLabel.topAnchor, constant: -kLLMControlSpacing),
+
+            pauseStepper.trailingAnchor.constraint(
+                lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+            pauseStepper.centerYAnchor.constraint(equalTo: pauseLabel.centerYAnchor),
+
+            pauseTextField.widthAnchor.constraint(equalToConstant: 56),
+            pauseTextField.trailingAnchor.constraint(
+                equalTo: pauseStepper.leadingAnchor, constant: -8),
+            pauseTextField.centerYAnchor.constraint(equalTo: pauseLabel.centerYAnchor),
+
+            triggerModeLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
+            triggerModeLabel.bottomAnchor.constraint(
+                equalTo: pauseLabel.topAnchor, constant: -kLLMControlSpacing),
+
+            triggerModePopUpButton.leadingAnchor.constraint(
+                equalTo: triggerModeLabel.trailingAnchor, constant: 8),
+            triggerModePopUpButton.centerYAnchor.constraint(equalTo: triggerModeLabel.centerYAnchor),
+            triggerModePopUpButton.trailingAnchor.constraint(
+                lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+
+            googleModelLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
+            googleModelLabel.bottomAnchor.constraint(
+                equalTo: triggerModeLabel.topAnchor, constant: -kLLMControlSpacing),
+
+            googleModelTextField.leadingAnchor.constraint(
+                equalTo: googleModelLabel.trailingAnchor, constant: 8),
+            googleModelTextField.centerYAnchor.constraint(equalTo: googleModelLabel.centerYAnchor),
+            googleModelTextField.trailingAnchor.constraint(
+                lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+
+            googleEndpointLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
+            googleEndpointLabel.bottomAnchor.constraint(
+                equalTo: googleModelLabel.topAnchor, constant: -kLLMControlSpacing),
+
+            googleEndpointTextField.leadingAnchor.constraint(
+                equalTo: googleEndpointLabel.trailingAnchor, constant: 8),
+            googleEndpointTextField.centerYAnchor.constraint(equalTo: googleEndpointLabel.centerYAnchor),
+            googleEndpointTextField.trailingAnchor.constraint(
+                lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+
+            googleAPIKeyLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
+            googleAPIKeyLabel.bottomAnchor.constraint(
+                equalTo: googleEndpointLabel.topAnchor, constant: -kLLMControlSpacing),
+
+            googleAPIKeyRevealButton.trailingAnchor.constraint(
+                lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+            googleAPIKeyRevealButton.centerYAnchor.constraint(equalTo: googleAPIKeyLabel.centerYAnchor),
+            googleAPIKeyRevealButton.widthAnchor.constraint(equalToConstant: 56),
+
+            googleAPIKeySecureTextField.leadingAnchor.constraint(
+                equalTo: googleAPIKeyLabel.trailingAnchor, constant: 8),
+            googleAPIKeySecureTextField.centerYAnchor.constraint(equalTo: googleAPIKeyLabel.centerYAnchor),
+            googleAPIKeySecureTextField.trailingAnchor.constraint(
+                equalTo: googleAPIKeyRevealButton.leadingAnchor, constant: -8),
+
+            googleAPIKeyPlainTextField.leadingAnchor.constraint(
+                equalTo: googleAPIKeyLabel.trailingAnchor, constant: 8),
+            googleAPIKeyPlainTextField.centerYAnchor.constraint(equalTo: googleAPIKeyLabel.centerYAnchor),
+            googleAPIKeyPlainTextField.trailingAnchor.constraint(
+                equalTo: googleAPIKeyRevealButton.leadingAnchor, constant: -8),
+
+            googleThinkingLevelLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
+            googleThinkingLevelLabel.bottomAnchor.constraint(
+                equalTo: googleAPIKeyLabel.topAnchor, constant: -kLLMControlSpacing),
+
+            googleThinkingLevelPopUpButton.leadingAnchor.constraint(
+                equalTo: googleThinkingLevelLabel.trailingAnchor, constant: 8),
+            googleThinkingLevelPopUpButton.centerYAnchor.constraint(
+                equalTo: googleThinkingLevelLabel.centerYAnchor),
+            googleThinkingLevelPopUpButton.trailingAnchor.constraint(
                 lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
         ])
 
         llmRankingEnabledButton = rankingButton
-        llmAutoPreselectEnabledButton = autoPreselectButton
+        llmActivityIndicatorButton = activityIndicatorButton
+        llmDebugAlertButton = debugAlertButton
+        llmTimeoutLabel = timeoutLabel
+        llmTimeoutTextField = timeoutTextField
+        llmTimeoutStepper = timeoutStepper
+        llmPauseLabel = pauseLabel
+        llmPauseTextField = pauseTextField
+        llmPauseStepper = pauseStepper
+        llmInputtingTriggerModeLabel = triggerModeLabel
+        llmInputtingTriggerModePopUpButton = triggerModePopUpButton
+        llmGoogleModelLabel = googleModelLabel
+        llmGoogleModelTextField = googleModelTextField
+        llmGoogleEndpointLabel = googleEndpointLabel
+        llmGoogleEndpointTextField = googleEndpointTextField
+        llmGoogleAPIKeyLabel = googleAPIKeyLabel
+        llmGoogleAPIKeySecureTextField = googleAPIKeySecureTextField
+        llmGoogleAPIKeyPlainTextField = googleAPIKeyPlainTextField
+        llmGoogleAPIKeyRevealButton = googleAPIKeyRevealButton
+        llmGoogleThinkingLevelLabel = googleThinkingLevelLabel
+        llmGoogleThinkingLevelPopUpButton = googleThinkingLevelPopUpButton
         refreshLLMControlsState()
     }
 
     private func refreshLLMControlsState() {
-        llmRankingEnabledButton?.state = Preferences.llmCandidateRankingEnabled ? .on : .off
-        llmAutoPreselectEnabledButton?.state =
-            Preferences.llmCandidateRankingAutoPreselectEnabled ? .on : .off
-        llmAutoPreselectEnabledButton?.isEnabled = Preferences.llmCandidateRankingEnabled
+        let isEnabled = Preferences.llmCandidateRankingEnabled
+        llmRankingEnabledButton?.state = isEnabled ? .on : .off
+        llmActivityIndicatorButton?.state = Preferences.llmShowActivityIndicator ? .on : .off
+        llmDebugAlertButton?.state = Preferences.llmShowDebugAlert ? .on : .off
+        llmActivityIndicatorButton?.isEnabled = isEnabled
+        llmDebugAlertButton?.isEnabled = isEnabled
+        llmTimeoutLabel?.isEnabled = isEnabled
+        llmTimeoutTextField?.isEnabled = isEnabled
+        llmTimeoutStepper?.isEnabled = isEnabled
+        llmPauseLabel?.isEnabled = isEnabled
+        llmPauseTextField?.isEnabled = isEnabled
+        llmPauseStepper?.isEnabled = isEnabled
+        llmInputtingTriggerModeLabel?.isEnabled = isEnabled
+        llmInputtingTriggerModePopUpButton?.isEnabled = isEnabled
+        llmInputtingTriggerModePopUpButton?.selectItem(
+            withTag: Preferences.llmInputtingTriggerMode.rawValue)
+        llmTimeoutTextField?.integerValue = Preferences.llmCandidateRankingTimeoutMs
+        llmTimeoutStepper?.integerValue = Preferences.llmCandidateRankingTimeoutMs
+        llmPauseTextField?.integerValue = Preferences.llmInputtingPauseMs
+        llmPauseStepper?.integerValue = Preferences.llmInputtingPauseMs
+
+        let googleEnabled = isEnabled
+        llmGoogleModelLabel?.isEnabled = googleEnabled
+        llmGoogleModelTextField?.isEnabled = googleEnabled
+        llmGoogleEndpointLabel?.isEnabled = googleEnabled
+        llmGoogleEndpointTextField?.isEnabled = googleEnabled
+        llmGoogleAPIKeyLabel?.isEnabled = googleEnabled
+        llmGoogleAPIKeySecureTextField?.isEnabled = googleEnabled
+        llmGoogleAPIKeyPlainTextField?.isEnabled = googleEnabled
+        llmGoogleAPIKeyRevealButton?.isEnabled = googleEnabled
+        llmGoogleThinkingLevelLabel?.isEnabled = googleEnabled
+        llmGoogleThinkingLevelPopUpButton?.isEnabled = googleEnabled
+        llmGoogleModelTextField?.stringValue = Preferences.llmGoogleModelName
+        llmGoogleEndpointTextField?.stringValue = Preferences.llmGoogleEndpoint
+        llmGoogleAPIKeySecureTextField?.stringValue = Preferences.llmGoogleAPIKey
+        llmGoogleAPIKeyPlainTextField?.stringValue = Preferences.llmGoogleAPIKey
+        llmGoogleAPIKeySecureTextField?.isHidden = llmGoogleAPIKeyRevealed
+        llmGoogleAPIKeyPlainTextField?.isHidden = !llmGoogleAPIKeyRevealed
+        llmGoogleAPIKeyRevealButton?.title =
+            llmGoogleAPIKeyRevealed
+            ? NSLocalizedString("Hide", comment: "")
+            : NSLocalizedString("Show", comment: "")
+        llmGoogleThinkingLevelPopUpButton?.selectItem(
+            withTag: Preferences.llmGoogleThinkingLevel.rawValue)
     }
 }
 

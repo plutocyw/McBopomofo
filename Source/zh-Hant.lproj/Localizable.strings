@@ -155,6 +155,37 @@
 
 "Illegal NULL character was found." = "這一行包含了不合規則的 NULL 字元 (0x00)。";
 
-"Use LLM Candidate Ranking" = "使用 LLM 候選詞排序";
+"Use LLM Candidate Ranking" = "使用雲端 LLM 進行輸入緩衝校正";
 
 "Auto-preselect top ranked candidate" = "自動預選並提交第一名候選詞";
+
+"LLM Provider" = "LLM 供應器";
+"Disabled" = "停用";
+"Apple On-Device" = "Apple 裝置端";
+"Open Source" = "開源模型";
+"Cloud (Google)" = "雲端（Google）";
+
+"LLM Timeout (ms)" = "LLM 逾時 (毫秒)";
+"LLM Pause Before Trigger (ms)" = "LLM 觸發前停頓 (毫秒)";
+"LLM Trigger Mode" = "LLM 觸發模式";
+"Continuous" = "連續觸發";
+"Segment End (Punctuation/Space)" = "段落結尾觸發（標點/空白）";
+
+"Show LLM Activity Indicator" = "顯示 LLM 活動指示";
+"Show LLM Debug Alert (Prompt/Response)" = "顯示 LLM 偵錯警示（Prompt/Response）";
+"Open-Source Model" = "開源模型";
+"Open-Source Endpoint" = "開源端點";
+"Cloud Model" = "雲端模型";
+"Cloud Endpoint" = "雲端端點";
+"Google API Key" = "Google API 金鑰";
+"Thinking Level" = "思考等級";
+"Off" = "關閉";
+"Low" = "低";
+"Medium" = "中";
+"High" = "高";
+
+"Candidate Ranking Stats" = "候選排序統計";
+"LLM Ranking Debug" = "LLM 排序偵錯";
+
+"Show" = "顯示";
+"Hide" = "隱藏";

@@ -21,23 +21,16 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 // OTHER DEALINGS IN THE SOFTWARE.
 
+import Foundation
+
 enum CandidateRankerFactory {
     static func makeCandidateRanker(
-        isEnabled: Bool = Preferences.llmCandidateRankingEnabled,
-        provider: LLMCandidateRankingProvider = Preferences.llmCandidateRankingProvider
+        isEnabled: Bool = Preferences.llmCandidateRankingEnabled
     ) -> CandidateRanker {
         guard isEnabled else {
             return NoOpCandidateRanker()
         }
-
-        switch provider {
-        case .disabled:
-            return NoOpCandidateRanker()
-        case .appleOnDevice:
-            return AppleOnDeviceCandidateRanker()
-        case .openSource:
-            // Open-source provider is not wired yet.
-            return NoOpCandidateRanker()
-        }
+        // Candidate-list reranking is currently disabled in runtime flow.
+        return NoOpCandidateRanker()
     }
 }

@@ -207,15 +207,6 @@ final class PreferencesTests {
         #expect(Preferences.llmCandidateRankingEnabled == true)
     }
 
-    @Test("Test LLM candidate ranking provider")
-    func testLLMCandidateRankingProvider() {
-        #expect(Preferences.llmCandidateRankingProvider == .disabled)
-        Preferences.llmCandidateRankingProvider = .appleOnDevice
-        #expect(Preferences.llmCandidateRankingProvider == .appleOnDevice)
-        Preferences.llmCandidateRankingProvider = .openSource
-        #expect(Preferences.llmCandidateRankingProvider == .openSource)
-    }
-
     @Test("Test LLM candidate ranking timeout bounds")
     func testLLMCandidateRankingTimeoutMs() {
         #expect(Preferences.llmCandidateRankingTimeoutMs == 12)
@@ -225,28 +216,56 @@ final class PreferencesTests {
         Preferences.llmCandidateRankingTimeoutMs = 0
         #expect(Preferences.llmCandidateRankingTimeoutMs == 1)
 
-        Preferences.llmCandidateRankingTimeoutMs = 201
-        #expect(Preferences.llmCandidateRankingTimeoutMs == 200)
+        Preferences.llmCandidateRankingTimeoutMs = 5001
+        #expect(Preferences.llmCandidateRankingTimeoutMs == 5000)
     }
 
-    @Test("Test LLM candidate ranking top N bounds")
-    func testLLMCandidateRankingTopN() {
-        #expect(Preferences.llmCandidateRankingTopN == 10)
-        Preferences.llmCandidateRankingTopN = 20
-        #expect(Preferences.llmCandidateRankingTopN == 20)
+    @Test("Test LLM inputting pause bounds")
+    func testLLMInputtingPauseMs() {
+        #expect(Preferences.llmInputtingPauseMs == 600)
+        Preferences.llmInputtingPauseMs = 800
+        #expect(Preferences.llmInputtingPauseMs == 800)
 
-        Preferences.llmCandidateRankingTopN = 0
-        #expect(Preferences.llmCandidateRankingTopN == 1)
+        Preferences.llmInputtingPauseMs = 50
+        #expect(Preferences.llmInputtingPauseMs == 100)
 
-        Preferences.llmCandidateRankingTopN = 51
-        #expect(Preferences.llmCandidateRankingTopN == 50)
+        Preferences.llmInputtingPauseMs = 5001
+        #expect(Preferences.llmInputtingPauseMs == 3000)
     }
 
-    @Test("Test LLM candidate ranking auto preselect enabled flag")
-    func testLLMCandidateRankingAutoPreselectEnabled() {
-        #expect(Preferences.llmCandidateRankingAutoPreselectEnabled == false)
-        Preferences.llmCandidateRankingAutoPreselectEnabled = true
-        #expect(Preferences.llmCandidateRankingAutoPreselectEnabled == true)
+    @Test("Test LLM activity indicator enabled flag")
+    func testLLMShowActivityIndicator() {
+        #expect(Preferences.llmShowActivityIndicator == true)
+        Preferences.llmShowActivityIndicator = false
+        #expect(Preferences.llmShowActivityIndicator == false)
+    }
+
+    @Test("Test LLM debug alert enabled flag")
+    func testLLMShowDebugAlert() {
+        #expect(Preferences.llmShowDebugAlert == false)
+        Preferences.llmShowDebugAlert = true
+        #expect(Preferences.llmShowDebugAlert == true)
+    }
+
+    @Test("Test LLM inputting trigger mode")
+    func testLLMInputtingTriggerMode() {
+        #expect(Preferences.llmInputtingTriggerMode == .continuous)
+        Preferences.llmInputtingTriggerMode = .segmentEnd
+        #expect(Preferences.llmInputtingTriggerMode == .segmentEnd)
+    }
+
+    @Test("Test LLM Google settings")
+    func testLLMGoogleSettings() {
+        #expect(Preferences.llmGoogleModelName == "gemini-2.5-flash-lite")
+        #expect(Preferences.llmGoogleEndpoint == "https://generativelanguage.googleapis.com/v1beta")
+        #expect(Preferences.llmGoogleAPIKey == "")
+
+        Preferences.llmGoogleModelName = "gemini-2.5-flash"
+        #expect(Preferences.llmGoogleModelName == "gemini-2.5-flash")
+        Preferences.llmGoogleEndpoint = "https://generativelanguage.googleapis.com/v1beta"
+        #expect(Preferences.llmGoogleEndpoint == "https://generativelanguage.googleapis.com/v1beta")
+        Preferences.llmGoogleAPIKey = "test-key"
+        #expect(Preferences.llmGoogleAPIKey == "test-key")
     }
 
 }

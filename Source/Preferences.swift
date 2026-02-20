@@ -76,18 +76,24 @@ let kBeepUponInputErrorKey = "BeepUponInputError"
 private let kEnableUserPhrasesInPlainBopomofo = "EnableUserPhrasesInPlainBopomofo"
 private let kAllowChangingPriorTone = "AllowChangingPriorTone"
 private let kLLMCandidateRankingEnabledKey = "LLMCandidateRankingEnabled"
-private let kLLMCandidateRankingProviderKey = "LLMCandidateRankingProvider"
 private let kLLMCandidateRankingTimeoutMsKey = "LLMCandidateRankingTimeoutMs"
-private let kLLMCandidateRankingTopNKey = "LLMCandidateRankingTopN"
-private let kLLMCandidateRankingAutoPreselectEnabledKey =
-    "LLMCandidateRankingAutoPreselectEnabled"
+private let kLLMInputtingPauseMsKey = "LLMInputtingPauseMs"
+private let kLLMShowActivityIndicatorKey = "LLMShowActivityIndicator"
+private let kLLMShowDebugAlertKey = "LLMShowDebugAlert"
+private let kLLMInputtingTriggerModeKey = "LLMInputtingTriggerMode"
+private let kLLMGoogleModelNameKey = "LLMGoogleModelName"
+private let kLLMGoogleEndpointKey = "LLMGoogleEndpoint"
+private let kLLMGoogleAPIKeyKey = "LLMGoogleAPIKey"
+private let kLLMGoogleThinkingLevelKey = "LLMGoogleThinkingLevel"
 
 private let kDefaultLLMCandidateRankingTimeoutMs = 12
 private let kMinLLMCandidateRankingTimeoutMs = 1
-private let kMaxLLMCandidateRankingTimeoutMs = 200
-private let kDefaultLLMCandidateRankingTopN = 10
-private let kMinLLMCandidateRankingTopN = 1
-private let kMaxLLMCandidateRankingTopN = 50
+private let kMaxLLMCandidateRankingTimeoutMs = 5000
+private let kDefaultLLMInputtingPauseMs = 600
+private let kMinLLMInputtingPauseMs = 100
+private let kMaxLLMInputtingPauseMs = 3000
+private let kDefaultLLMGoogleModelName = "gemini-2.5-flash-lite"
+private let kDefaultLLMGoogleEndpoint = "https://generativelanguage.googleapis.com/v1beta"
 
 // MARK: Property wrappers
 
@@ -246,19 +252,49 @@ struct BoundedIntUserDefault {
     }
 }
 
-@objc enum LLMCandidateRankingProvider: Int {
-    case disabled = 0
-    case appleOnDevice = 1
-    case openSource = 2
+@objc enum LLMInputtingTriggerMode: Int {
+    case continuous = 0
+    case segmentEnd = 1
 
     var name: String {
         return switch self {
-        case .disabled:
-            "Disabled"
-        case .appleOnDevice:
-            "AppleOnDevice"
-        case .openSource:
-            "OpenSource"
+        case .continuous:
+            "Continuous"
+        case .segmentEnd:
+            "SegmentEnd"
+        }
+    }
+}
+
+@objc enum LLMGoogleThinkingLevel: Int {
+    case off = 0
+    case low = 1
+    case medium = 2
+    case high = 3
+
+    var name: String {
+        return switch self {
+        case .off:
+            "Off"
+        case .low:
+            "Low"
+        case .medium:
+            "Medium"
+        case .high:
+            "High"
+        }
+    }
+
+    var thinkingBudget: Int {
+        return switch self {
+        case .off:
+            0
+        case .low:
+            256
+        case .medium:
+            1024
+        case .high:
+            2048
         }
     }
 }
@@ -292,10 +328,15 @@ class Preferences: NSObject {
             kUseCustomUserPhraseLocation,
             kCustomUserPhraseLocation,
             kLLMCandidateRankingEnabledKey,
-            kLLMCandidateRankingProviderKey,
             kLLMCandidateRankingTimeoutMsKey,
-            kLLMCandidateRankingTopNKey,
-            kLLMCandidateRankingAutoPreselectEnabledKey,
+            kLLMInputtingPauseMsKey,
+            kLLMShowActivityIndicatorKey,
+            kLLMShowDebugAlertKey,
+            kLLMInputtingTriggerModeKey,
+            kLLMGoogleModelNameKey,
+            kLLMGoogleEndpointKey,
+            kLLMGoogleAPIKeyKey,
+            kLLMGoogleThinkingLevelKey,
         ]
     }
 
@@ -328,11 +369,15 @@ class Preferences: NSObject {
         Preferences.allowMovingCursorWhenChoosingCandidates =
             Preferences.allowMovingCursorWhenChoosingCandidates
         Preferences.llmCandidateRankingEnabled = Preferences.llmCandidateRankingEnabled
-        Preferences.llmCandidateRankingProvider = Preferences.llmCandidateRankingProvider
         Preferences.llmCandidateRankingTimeoutMs = Preferences.llmCandidateRankingTimeoutMs
-        Preferences.llmCandidateRankingTopN = Preferences.llmCandidateRankingTopN
-        Preferences.llmCandidateRankingAutoPreselectEnabled =
-            Preferences.llmCandidateRankingAutoPreselectEnabled
+        Preferences.llmInputtingPauseMs = Preferences.llmInputtingPauseMs
+        Preferences.llmShowActivityIndicator = Preferences.llmShowActivityIndicator
+        Preferences.llmShowDebugAlert = Preferences.llmShowDebugAlert
+        Preferences.llmInputtingTriggerMode = Preferences.llmInputtingTriggerMode
+        Preferences.llmGoogleModelName = Preferences.llmGoogleModelName
+        Preferences.llmGoogleEndpoint = Preferences.llmGoogleEndpoint
+        Preferences.llmGoogleAPIKey = Preferences.llmGoogleAPIKey
+        Preferences.llmGoogleThinkingLevel = Preferences.llmGoogleThinkingLevel
     }
 
     @EnumUserDefault(key: kKeyboardLayoutPreferenceKey, defaultValue: KeyboardLayout.standard)
@@ -653,21 +698,36 @@ extension Preferences {
     @UserDefault(key: kLLMCandidateRankingEnabledKey, defaultValue: false)
     @objc static var llmCandidateRankingEnabled: Bool
 
-    @EnumUserDefault(key: kLLMCandidateRankingProviderKey, defaultValue: .disabled)
-    @objc static var llmCandidateRankingProvider: LLMCandidateRankingProvider
-
     @BoundedIntUserDefault(
         key: kLLMCandidateRankingTimeoutMsKey, defaultValue: kDefaultLLMCandidateRankingTimeoutMs,
         minValue: kMinLLMCandidateRankingTimeoutMs, maxValue: kMaxLLMCandidateRankingTimeoutMs)
     @objc static var llmCandidateRankingTimeoutMs: Int
 
     @BoundedIntUserDefault(
-        key: kLLMCandidateRankingTopNKey, defaultValue: kDefaultLLMCandidateRankingTopN,
-        minValue: kMinLLMCandidateRankingTopN, maxValue: kMaxLLMCandidateRankingTopN)
-    @objc static var llmCandidateRankingTopN: Int
+        key: kLLMInputtingPauseMsKey, defaultValue: kDefaultLLMInputtingPauseMs,
+        minValue: kMinLLMInputtingPauseMs, maxValue: kMaxLLMInputtingPauseMs)
+    @objc static var llmInputtingPauseMs: Int
 
-    @UserDefault(key: kLLMCandidateRankingAutoPreselectEnabledKey, defaultValue: false)
-    @objc static var llmCandidateRankingAutoPreselectEnabled: Bool
+    @UserDefault(key: kLLMShowActivityIndicatorKey, defaultValue: true)
+    @objc static var llmShowActivityIndicator: Bool
+
+    @UserDefault(key: kLLMShowDebugAlertKey, defaultValue: false)
+    @objc static var llmShowDebugAlert: Bool
+
+    @EnumUserDefault(key: kLLMInputtingTriggerModeKey, defaultValue: .continuous)
+    @objc static var llmInputtingTriggerMode: LLMInputtingTriggerMode
+
+    @UserDefault(key: kLLMGoogleModelNameKey, defaultValue: kDefaultLLMGoogleModelName)
+    @objc static var llmGoogleModelName: String
+
+    @UserDefault(key: kLLMGoogleEndpointKey, defaultValue: kDefaultLLMGoogleEndpoint)
+    @objc static var llmGoogleEndpoint: String
+
+    @UserDefault(key: kLLMGoogleAPIKeyKey, defaultValue: "")
+    @objc static var llmGoogleAPIKey: String
+
+    @EnumUserDefault(key: kLLMGoogleThinkingLevelKey, defaultValue: .off)
+    @objc static var llmGoogleThinkingLevel: LLMGoogleThinkingLevel
 }
 
 extension Preferences {
@@ -733,13 +793,24 @@ extension Preferences {
             "  - LLM Candidate Ranking: \(Preferences.llmCandidateRankingEnabled ? "Enabled" : "Disabled")"
         )
         lines.append(
-            "  - LLM Candidate Ranking Provider: \(Preferences.llmCandidateRankingProvider.name)")
-        lines.append(
             "  - LLM Candidate Ranking Timeout: \(Preferences.llmCandidateRankingTimeoutMs) ms")
+        lines.append("  - LLM Inputting Pause: \(Preferences.llmInputtingPauseMs) ms")
         lines.append(
-            "  - LLM Candidate Ranking Top N: \(Preferences.llmCandidateRankingTopN)")
+            "  - LLM Activity Indicator: \(Preferences.llmShowActivityIndicator ? "Enabled" : "Disabled")"
+        )
         lines.append(
-            "  - LLM Candidate Ranking Auto-Preselect: \(Preferences.llmCandidateRankingAutoPreselectEnabled ? "Enabled" : "Disabled")"
+            "  - LLM Debug Alert: \(Preferences.llmShowDebugAlert ? "Enabled" : "Disabled")"
+        )
+        lines.append(
+            "  - LLM Inputting Trigger Mode: \(Preferences.llmInputtingTriggerMode.name)"
+        )
+        lines.append("  - LLM Google Model: \(Preferences.llmGoogleModelName)")
+        lines.append("  - LLM Google Endpoint: \(Preferences.llmGoogleEndpoint)")
+        lines.append(
+            "  - LLM Google API Key: \(Preferences.llmGoogleAPIKey.isEmpty ? "<empty>" : "<redacted>")"
+        )
+        lines.append(
+            "  - LLM Google Thinking Level: \(Preferences.llmGoogleThinkingLevel.name) (budget: \(Preferences.llmGoogleThinkingLevel.thinkingBudget))"
         )
         return lines.joined(separator: "\n")
     }
