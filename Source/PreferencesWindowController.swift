@@ -39,7 +39,7 @@ private let kWindowTitleHeight: CGFloat = 78
 @objc(PreferencesWindowController) class PreferencesWindowController: NSWindowController {
     private let kLLMControlBottomInset: CGFloat = 12
     private let kLLMControlSpacing: CGFloat = 8
-    private let kLLMControlExtraViewHeight: CGFloat = 372
+    private let kLLMControlExtraViewHeight: CGFloat = 472
 
     @IBOutlet weak var fontSizePopUpButton: NSPopUpButton!
     @IBOutlet weak var basisKeyboardLayoutButton: NSPopUpButton!
@@ -77,6 +77,12 @@ private let kWindowTitleHeight: CGFloat = 78
     private var llmGoogleAPIKeyRevealed = false
     private var llmGoogleThinkingLevelLabel: NSTextField?
     private var llmGoogleThinkingLevelPopUpButton: NSPopUpButton?
+    private var llmProviderLabel: NSTextField?
+    private var llmProviderPopUpButton: NSPopUpButton?
+    private var llmOllamaEndpointLabel: NSTextField?
+    private var llmOllamaEndpointTextField: NSTextField?
+    private var llmOllamaModelLabel: NSTextField?
+    private var llmOllamaModelTextField: NSTextField?
 
     override func awakeFromNib() {
         let toolbar = NSToolbar(identifier: "preference toolbar")
@@ -396,6 +402,27 @@ private let kWindowTitleHeight: CGFloat = 78
         refreshLLMControlsState()
     }
 
+    @objc private func changeLLMProvider(_ sender: NSPopUpButton) {
+        guard let selectedItem = sender.selectedItem else {
+            return
+        }
+        let provider = LLMProvider(rawValue: selectedItem.tag) ?? .googleCloud
+        Preferences.llmProvider = provider
+        refreshLLMControlsState()
+    }
+
+    @objc private func changeLLMOllamaEndpoint(_ sender: NSTextField) {
+        let text = sender.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        Preferences.llmOllamaEndpoint = text.isEmpty ? "http://localhost:11434" : text
+        refreshLLMControlsState()
+    }
+
+    @objc private func changeLLMOllamaModel(_ sender: NSTextField) {
+        let text = sender.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        Preferences.llmOllamaModelName = text.isEmpty ? "gemma4:e4b" : text
+        refreshLLMControlsState()
+    }
+
     @objc private func changeLLMGoogleThinkingLevel(_ sender: NSPopUpButton) {
         guard let selectedItem = sender.selectedItem else {
             return
@@ -411,11 +438,14 @@ private let kWindowTitleHeight: CGFloat = 78
             || llmPauseLabel != nil || llmPauseTextField != nil || llmPauseStepper != nil
             || llmInputtingTriggerModeLabel != nil || llmInputtingTriggerModePopUpButton != nil
             || llmActivityIndicatorButton != nil || llmDebugAlertButton != nil
+            || llmProviderLabel != nil || llmProviderPopUpButton != nil
             || llmGoogleModelLabel != nil || llmGoogleModelTextField != nil
             || llmGoogleEndpointLabel != nil || llmGoogleEndpointTextField != nil
             || llmGoogleAPIKeyLabel != nil || llmGoogleAPIKeySecureTextField != nil
             || llmGoogleAPIKeyPlainTextField != nil || llmGoogleAPIKeyRevealButton != nil
             || llmGoogleThinkingLevelLabel != nil || llmGoogleThinkingLevelPopUpButton != nil
+            || llmOllamaEndpointLabel != nil || llmOllamaEndpointTextField != nil
+            || llmOllamaModelLabel != nil || llmOllamaModelTextField != nil
         {
             refreshLLMControlsState()
             return
@@ -552,6 +582,40 @@ private let kWindowTitleHeight: CGFloat = 78
         googleThinkingLevelPopUpButton.addItem(withTitle: NSLocalizedString("High", comment: ""))
         googleThinkingLevelPopUpButton.lastItem?.tag = LLMGoogleThinkingLevel.high.rawValue
 
+        let providerLabel = NSTextField(labelWithString: "")
+        providerLabel.translatesAutoresizingMaskIntoConstraints = false
+        providerLabel.stringValue = NSLocalizedString("LLM Provider", comment: "")
+
+        let providerPopUpButton = NSPopUpButton(frame: .zero, pullsDown: false)
+        providerPopUpButton.translatesAutoresizingMaskIntoConstraints = false
+        providerPopUpButton.target = self
+        providerPopUpButton.action = #selector(changeLLMProvider(_:))
+        providerPopUpButton.removeAllItems()
+        providerPopUpButton.addItem(
+            withTitle: NSLocalizedString("Google Cloud", comment: ""))
+        providerPopUpButton.lastItem?.tag = LLMProvider.googleCloud.rawValue
+        providerPopUpButton.addItem(
+            withTitle: NSLocalizedString("Ollama (Local)", comment: ""))
+        providerPopUpButton.lastItem?.tag = LLMProvider.ollama.rawValue
+
+        let ollamaEndpointLabel = NSTextField(labelWithString: "")
+        ollamaEndpointLabel.translatesAutoresizingMaskIntoConstraints = false
+        ollamaEndpointLabel.stringValue = NSLocalizedString("Ollama Endpoint", comment: "")
+
+        let ollamaEndpointTextField = NSTextField(frame: .zero)
+        ollamaEndpointTextField.translatesAutoresizingMaskIntoConstraints = false
+        ollamaEndpointTextField.target = self
+        ollamaEndpointTextField.action = #selector(changeLLMOllamaEndpoint(_:))
+
+        let ollamaModelLabel = NSTextField(labelWithString: "")
+        ollamaModelLabel.translatesAutoresizingMaskIntoConstraints = false
+        ollamaModelLabel.stringValue = NSLocalizedString("Ollama Model", comment: "")
+
+        let ollamaModelTextField = NSTextField(frame: .zero)
+        ollamaModelTextField.translatesAutoresizingMaskIntoConstraints = false
+        ollamaModelTextField.target = self
+        ollamaModelTextField.action = #selector(changeLLMOllamaModel(_:))
+
         advancedSettingsView.addSubview(rankingButton)
         advancedSettingsView.addSubview(activityIndicatorButton)
         advancedSettingsView.addSubview(debugAlertButton)
@@ -573,6 +637,12 @@ private let kWindowTitleHeight: CGFloat = 78
         advancedSettingsView.addSubview(googleAPIKeyRevealButton)
         advancedSettingsView.addSubview(googleThinkingLevelLabel)
         advancedSettingsView.addSubview(googleThinkingLevelPopUpButton)
+        advancedSettingsView.addSubview(providerLabel)
+        advancedSettingsView.addSubview(providerPopUpButton)
+        advancedSettingsView.addSubview(ollamaEndpointLabel)
+        advancedSettingsView.addSubview(ollamaEndpointTextField)
+        advancedSettingsView.addSubview(ollamaModelLabel)
+        advancedSettingsView.addSubview(ollamaModelTextField)
 
         NSLayoutConstraint.activate([
             rankingButton.leadingAnchor.constraint(
@@ -681,6 +751,36 @@ private let kWindowTitleHeight: CGFloat = 78
                 equalTo: googleThinkingLevelLabel.centerYAnchor),
             googleThinkingLevelPopUpButton.trailingAnchor.constraint(
                 lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+
+            providerLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
+            providerLabel.bottomAnchor.constraint(
+                equalTo: googleThinkingLevelLabel.topAnchor, constant: -kLLMControlSpacing),
+
+            providerPopUpButton.leadingAnchor.constraint(
+                equalTo: providerLabel.trailingAnchor, constant: 8),
+            providerPopUpButton.centerYAnchor.constraint(equalTo: providerLabel.centerYAnchor),
+            providerPopUpButton.trailingAnchor.constraint(
+                lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+
+            ollamaModelLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
+            ollamaModelLabel.bottomAnchor.constraint(
+                equalTo: providerLabel.topAnchor, constant: -kLLMControlSpacing),
+
+            ollamaModelTextField.leadingAnchor.constraint(
+                equalTo: ollamaModelLabel.trailingAnchor, constant: 8),
+            ollamaModelTextField.centerYAnchor.constraint(equalTo: ollamaModelLabel.centerYAnchor),
+            ollamaModelTextField.trailingAnchor.constraint(
+                lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+
+            ollamaEndpointLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
+            ollamaEndpointLabel.bottomAnchor.constraint(
+                equalTo: ollamaModelLabel.topAnchor, constant: -kLLMControlSpacing),
+
+            ollamaEndpointTextField.leadingAnchor.constraint(
+                equalTo: ollamaEndpointLabel.trailingAnchor, constant: 8),
+            ollamaEndpointTextField.centerYAnchor.constraint(equalTo: ollamaEndpointLabel.centerYAnchor),
+            ollamaEndpointTextField.trailingAnchor.constraint(
+                lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
         ])
 
         llmRankingEnabledButton = rankingButton
@@ -704,6 +804,12 @@ private let kWindowTitleHeight: CGFloat = 78
         llmGoogleAPIKeyRevealButton = googleAPIKeyRevealButton
         llmGoogleThinkingLevelLabel = googleThinkingLevelLabel
         llmGoogleThinkingLevelPopUpButton = googleThinkingLevelPopUpButton
+        llmProviderLabel = providerLabel
+        llmProviderPopUpButton = providerPopUpButton
+        llmOllamaEndpointLabel = ollamaEndpointLabel
+        llmOllamaEndpointTextField = ollamaEndpointTextField
+        llmOllamaModelLabel = ollamaModelLabel
+        llmOllamaModelTextField = ollamaModelTextField
         refreshLLMControlsState()
     }
 
@@ -729,7 +835,12 @@ private let kWindowTitleHeight: CGFloat = 78
         llmPauseTextField?.integerValue = Preferences.llmInputtingPauseMs
         llmPauseStepper?.integerValue = Preferences.llmInputtingPauseMs
 
-        let googleEnabled = isEnabled
+        llmProviderLabel?.isEnabled = isEnabled
+        llmProviderPopUpButton?.isEnabled = isEnabled
+        llmProviderPopUpButton?.selectItem(withTag: Preferences.llmProvider.rawValue)
+
+        let isGoogleCloud = Preferences.llmProvider == .googleCloud
+        let googleEnabled = isEnabled && isGoogleCloud
         llmGoogleModelLabel?.isEnabled = googleEnabled
         llmGoogleModelTextField?.isEnabled = googleEnabled
         llmGoogleEndpointLabel?.isEnabled = googleEnabled
@@ -752,6 +863,15 @@ private let kWindowTitleHeight: CGFloat = 78
             : NSLocalizedString("Show", comment: "")
         llmGoogleThinkingLevelPopUpButton?.selectItem(
             withTag: Preferences.llmGoogleThinkingLevel.rawValue)
+
+        let isOllama = Preferences.llmProvider == .ollama
+        let ollamaEnabled = isEnabled && isOllama
+        llmOllamaEndpointLabel?.isEnabled = ollamaEnabled
+        llmOllamaEndpointTextField?.isEnabled = ollamaEnabled
+        llmOllamaModelLabel?.isEnabled = ollamaEnabled
+        llmOllamaModelTextField?.isEnabled = ollamaEnabled
+        llmOllamaEndpointTextField?.stringValue = Preferences.llmOllamaEndpoint
+        llmOllamaModelTextField?.stringValue = Preferences.llmOllamaModelName
     }
 }
 

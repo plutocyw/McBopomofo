@@ -1273,8 +1273,14 @@ extension McBopomofoInputMethodController {
     private func rankWholeInputtingBuffer(context: InputtingRankingContext) -> InputtingRewriteResponse {
         let prompt = makeInputtingRewritePrompt(context: context)
         let startNs = DispatchTime.now().uptimeNanoseconds
-        return rankWholeInputtingBufferWithGoogleCloud(
-            prompt: prompt, context: context, startNs: startNs)
+        switch Preferences.llmProvider {
+        case .ollama:
+            return rankWholeInputtingBufferWithOllama(
+                prompt: prompt, context: context, startNs: startNs)
+        case .googleCloud:
+            return rankWholeInputtingBufferWithGoogleCloud(
+                prompt: prompt, context: context, startNs: startNs)
+        }
     }
 
     private func rankWholeInputtingBufferWithGoogleCloud(
@@ -1507,6 +1513,175 @@ extension McBopomofoInputMethodController {
     private func makeGoogleGenerateContentURL(baseEndpoint: String, modelName: String) -> URL? {
         let trimmedBase = baseEndpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         return URL(string: "\(trimmedBase)/models/\(modelName):generateContent")
+    }
+
+    // MARK: - Ollama Local LLM
+
+    private func rankWholeInputtingBufferWithOllama(
+        prompt: String,
+        context: InputtingRankingContext,
+        startNs: UInt64
+    ) -> InputtingRewriteResponse {
+        struct OllamaRequest: Encodable {
+            let model: String
+            let prompt: String
+            let system: String
+            let stream: Bool
+            let options: OllamaOptions
+
+            struct OllamaOptions: Encodable {
+                let temperature: Double
+                let top_p: Double
+                let num_predict: Int
+            }
+        }
+
+        struct OllamaResponse: Decodable {
+            let response: String?
+            let error: String?
+        }
+
+        let provider = "Ollama"
+        let timeout = max(0.05, Double(Preferences.llmCandidateRankingTimeoutMs) / 1000.0)
+        let endpointBase = Preferences.llmOllamaEndpoint.trimmingCharacters(
+            in: .whitespacesAndNewlines)
+        guard !endpointBase.isEmpty else {
+            return InputtingRewriteResponse(
+                provider: provider,
+                prompt: prompt,
+                rawResponse: nil,
+                elapsedMs: 0,
+                rewrittenBuffer: nil,
+                selections: nil,
+                fallbackReason: "emptyOllamaEndpoint",
+                errorDescription: nil
+            )
+        }
+        let modelName = Preferences.llmOllamaModelName.trimmingCharacters(
+            in: .whitespacesAndNewlines)
+        guard !modelName.isEmpty else {
+            return InputtingRewriteResponse(
+                provider: provider,
+                prompt: prompt,
+                rawResponse: nil,
+                elapsedMs: 0,
+                rewrittenBuffer: nil,
+                selections: nil,
+                fallbackReason: "emptyOllamaModelName",
+                errorDescription: nil
+            )
+        }
+        let trimmedBase = endpointBase.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard let endpoint = URL(string: "\(trimmedBase)/api/generate") else {
+            return InputtingRewriteResponse(
+                provider: provider,
+                prompt: prompt,
+                rawResponse: nil,
+                elapsedMs: 0,
+                rewrittenBuffer: nil,
+                selections: nil,
+                fallbackReason: "invalidOllamaEndpoint",
+                errorDescription: nil
+            )
+        }
+
+        let body = OllamaRequest(
+            model: modelName,
+            prompt: prompt,
+            system:
+                "You are an IME same-pronunciation correction engine. Output only the corrected sentence. Never output analysis or chain-of-thought.",
+            stream: false,
+            options: .init(
+                temperature: 0,
+                top_p: 1,
+                num_predict: 128
+            )
+        )
+        guard let jsonData = try? JSONEncoder().encode(body) else {
+            return InputtingRewriteResponse(
+                provider: provider,
+                prompt: prompt,
+                rawResponse: nil,
+                elapsedMs: 0,
+                rewrittenBuffer: nil,
+                selections: nil,
+                fallbackReason: "jsonEncodeFailed",
+                errorDescription: nil
+            )
+        }
+
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = jsonData
+        request.timeoutInterval = timeout
+
+        let semaphore = DispatchSemaphore(value: 0)
+        var responseData: Data?
+        var responseError: Error?
+        URLSession.shared.dataTask(with: request) { data, _, error in
+            responseData = data
+            responseError = error
+            semaphore.signal()
+        }.resume()
+
+        let wait = semaphore.wait(timeout: .now() + timeout + 0.05)
+        let elapsedMs = Int((DispatchTime.now().uptimeNanoseconds - startNs) / 1_000_000)
+        if wait == .timedOut {
+            return InputtingRewriteResponse(
+                provider: provider,
+                prompt: prompt,
+                rawResponse: nil,
+                elapsedMs: elapsedMs,
+                rewrittenBuffer: nil,
+                selections: nil,
+                fallbackReason: "requestTimeout",
+                errorDescription: nil
+            )
+        }
+        guard let responseData else {
+            return InputtingRewriteResponse(
+                provider: provider,
+                prompt: prompt,
+                rawResponse: nil,
+                elapsedMs: elapsedMs,
+                rewrittenBuffer: nil,
+                selections: nil,
+                fallbackReason: "emptyResponse",
+                errorDescription: responseError.map { "\($0)" }
+            )
+        }
+        let rawResponse = String(data: responseData, encoding: .utf8)
+        let parsed = try? JSONDecoder().decode(OllamaResponse.self, from: responseData)
+        guard let responseText = parsed?.response else {
+            return InputtingRewriteResponse(
+                provider: provider,
+                prompt: prompt,
+                rawResponse: rawResponse,
+                elapsedMs: elapsedMs,
+                rewrittenBuffer: nil,
+                selections: nil,
+                fallbackReason: parsed?.error != nil ? "ollamaError" : "invalidJSON",
+                errorDescription: parsed?.error
+            )
+        }
+        let rewrittenBuffer = parseInputtingRewrittenBuffer(
+            from: responseText,
+            expectedCharacterCount: context.composingBuffer.count
+        )
+        let selections = rewrittenBuffer.flatMap {
+            mapRewrittenBufferToSelections($0, segments: context.segments)
+        }
+        return InputtingRewriteResponse(
+            provider: provider,
+            prompt: prompt,
+            rawResponse: responseText,
+            elapsedMs: elapsedMs,
+            rewrittenBuffer: rewrittenBuffer,
+            selections: selections,
+            fallbackReason: selections == nil ? "parserFallback" : nil,
+            errorDescription: nil
+        )
     }
 
     private func makeInputtingRewritePrompt(context: InputtingRankingContext) -> String {

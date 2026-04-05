@@ -86,6 +86,13 @@ private let kLLMGoogleEndpointKey = "LLMGoogleEndpoint"
 private let kLLMGoogleAPIKeyKey = "LLMGoogleAPIKey"
 private let kLLMGoogleThinkingLevelKey = "LLMGoogleThinkingLevel"
 
+private let kLLMProviderKey = "LLMProvider"
+private let kLLMOllamaEndpointKey = "LLMOllamaEndpoint"
+private let kLLMOllamaModelNameKey = "LLMOllamaModelName"
+
+private let kDefaultLLMOllamaEndpoint = "http://localhost:11434"
+private let kDefaultLLMOllamaModelName = "gemma4:e4b"
+
 private let kDefaultLLMCandidateRankingTimeoutMs = 12
 private let kMinLLMCandidateRankingTimeoutMs = 1
 private let kMaxLLMCandidateRankingTimeoutMs = 5000
@@ -252,6 +259,20 @@ struct BoundedIntUserDefault {
     }
 }
 
+@objc enum LLMProvider: Int {
+    case googleCloud = 0
+    case ollama = 1
+
+    var name: String {
+        return switch self {
+        case .googleCloud:
+            "Google Cloud"
+        case .ollama:
+            "Ollama"
+        }
+    }
+}
+
 @objc enum LLMInputtingTriggerMode: Int {
     case continuous = 0
     case segmentEnd = 1
@@ -337,6 +358,9 @@ class Preferences: NSObject {
             kLLMGoogleEndpointKey,
             kLLMGoogleAPIKeyKey,
             kLLMGoogleThinkingLevelKey,
+            kLLMProviderKey,
+            kLLMOllamaEndpointKey,
+            kLLMOllamaModelNameKey,
         ]
     }
 
@@ -378,6 +402,9 @@ class Preferences: NSObject {
         Preferences.llmGoogleEndpoint = Preferences.llmGoogleEndpoint
         Preferences.llmGoogleAPIKey = Preferences.llmGoogleAPIKey
         Preferences.llmGoogleThinkingLevel = Preferences.llmGoogleThinkingLevel
+        Preferences.llmProvider = Preferences.llmProvider
+        Preferences.llmOllamaEndpoint = Preferences.llmOllamaEndpoint
+        Preferences.llmOllamaModelName = Preferences.llmOllamaModelName
     }
 
     @EnumUserDefault(key: kKeyboardLayoutPreferenceKey, defaultValue: KeyboardLayout.standard)
@@ -728,6 +755,15 @@ extension Preferences {
 
     @EnumUserDefault(key: kLLMGoogleThinkingLevelKey, defaultValue: .off)
     @objc static var llmGoogleThinkingLevel: LLMGoogleThinkingLevel
+
+    @EnumUserDefault(key: kLLMProviderKey, defaultValue: .googleCloud)
+    @objc static var llmProvider: LLMProvider
+
+    @UserDefault(key: kLLMOllamaEndpointKey, defaultValue: kDefaultLLMOllamaEndpoint)
+    @objc static var llmOllamaEndpoint: String
+
+    @UserDefault(key: kLLMOllamaModelNameKey, defaultValue: kDefaultLLMOllamaModelName)
+    @objc static var llmOllamaModelName: String
 }
 
 extension Preferences {
@@ -812,6 +848,9 @@ extension Preferences {
         lines.append(
             "  - LLM Google Thinking Level: \(Preferences.llmGoogleThinkingLevel.name) (budget: \(Preferences.llmGoogleThinkingLevel.thinkingBudget))"
         )
+        lines.append("  - LLM Provider: \(Preferences.llmProvider.name)")
+        lines.append("  - LLM Ollama Endpoint: \(Preferences.llmOllamaEndpoint)")
+        lines.append("  - LLM Ollama Model: \(Preferences.llmOllamaModelName)")
         return lines.joined(separator: "\n")
     }
 }

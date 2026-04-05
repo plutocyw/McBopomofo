@@ -103,6 +103,7 @@
 		E001A1BD2F00100500AAA001 /* CandidateRankingPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001A1BC2F00100500AAA001 /* CandidateRankingPipeline.swift */; };
 		E001A1BF2F00100600AAA001 /* TimeoutCandidateRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001A1BE2F00100600AAA001 /* TimeoutCandidateRanker.swift */; };
 		E001A1C12F00100700AAA001 /* AppleOnDeviceCandidateRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001A1C02F00100700AAA001 /* AppleOnDeviceCandidateRanker.swift */; };
+		E001A1D02F00100900AAA001 /* OllamaCandidateRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001A1CF2F00100900AAA001 /* OllamaCandidateRanker.swift */; };
 		E001A1C32F00100800AAA001 /* CandidateRankingStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001A1C22F00100800AAA001 /* CandidateRankingStats.swift */; };
 /* End PBXBuildFile section */
 
@@ -267,6 +268,7 @@
 		E001A1BC2F00100500AAA001 /* CandidateRankingPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateRankingPipeline.swift; sourceTree = "<group>"; };
 		E001A1BE2F00100600AAA001 /* TimeoutCandidateRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeoutCandidateRanker.swift; sourceTree = "<group>"; };
 		E001A1C02F00100700AAA001 /* AppleOnDeviceCandidateRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleOnDeviceCandidateRanker.swift; sourceTree = "<group>"; };
+		E001A1CF2F00100900AAA001 /* OllamaCandidateRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OllamaCandidateRanker.swift; sourceTree = "<group>"; };
 		E001A1C22F00100800AAA001 /* CandidateRankingStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateRankingStats.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -539,6 +541,7 @@
 				E001A1BC2F00100500AAA001 /* CandidateRankingPipeline.swift */,
 				E001A1C22F00100800AAA001 /* CandidateRankingStats.swift */,
 				E001A1B62F00100200AAA001 /* NoOpCandidateRanker.swift */,
+				E001A1CF2F00100900AAA001 /* OllamaCandidateRanker.swift */,
 				E001A1BE2F00100600AAA001 /* TimeoutCandidateRanker.swift */,
 			);
 			path = CandidateRanking;
@@ -786,6 +789,7 @@
 				E001A1B72F00100200AAA001 /* NoOpCandidateRanker.swift in Sources */,
 				E001A1BF2F00100600AAA001 /* TimeoutCandidateRanker.swift in Sources */,
 				E001A1C12F00100700AAA001 /* AppleOnDeviceCandidateRanker.swift in Sources */,
+				E001A1D02F00100900AAA001 /* OllamaCandidateRanker.swift in Sources */,
 				D4E569DC27A34D0E00AC2CEF /* KeyHandler.mm in Sources */,
 				6A4F5F982879E838008C4307 /* reading_grid.cpp in Sources */,
 				D47F7DD0278C0897002F9DD7 /* NonModalAlertWindowController.swift in Sources */,

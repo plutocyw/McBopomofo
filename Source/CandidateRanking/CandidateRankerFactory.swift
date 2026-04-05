@@ -30,7 +30,12 @@ enum CandidateRankerFactory {
         guard isEnabled else {
             return NoOpCandidateRanker()
         }
-        // Candidate-list reranking is currently disabled in runtime flow.
-        return NoOpCandidateRanker()
+        switch Preferences.llmProvider {
+        case .ollama:
+            return OllamaCandidateRanker()
+        case .googleCloud:
+            // Candidate-list reranking via Google Cloud is currently disabled.
+            return NoOpCandidateRanker()
+        }
     }
 }
