@@ -164,6 +164,13 @@
 "Apple On-Device" = "Apple 裝置端";
 "Open Source" = "開源模型";
 "Cloud (Google)" = "雲端（Google）";
+"Cloud Provider" = "雲端供應商";
+"Google" = "Google";
+"OpenAI" = "OpenAI";
+"OpenAI API Key" = "OpenAI API 金鑰";
+"Custom" = "自訂";
+"Custom: %@" = "自訂：%@";
+"Enter custom value" = "請輸入自訂值";
 
 "LLM Timeout (ms)" = "LLM 逾時 (毫秒)";
 "LLM Pause Before Trigger (ms)" = "LLM 觸發前停頓 (毫秒)";

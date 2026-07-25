@@ -39,6 +39,50 @@ private let kMinKeyLabelSize: CGFloat = 10
 
 internal var gCurrentCandidateController: CandidateController?
 
+struct GoogleGenerateContentThinkingConfig: Encodable {
+    let thinkingBudget: Int?
+    let thinkingLevel: String?
+}
+
+struct GoogleGenerateContentGenerationConfig: Encodable {
+    let temperature: Double?
+    let topP: Double?
+    let maxOutputTokens: Int
+    let candidateCount: Int?
+    let responseMimeType: String
+    let thinkingConfig: GoogleGenerateContentThinkingConfig
+
+    init(modelName: String, thinkingLevel: LLMGoogleThinkingLevel) {
+        // Gemini 3 thinking tokens share the response budget with the visible
+        // answer. Leave enough headroom so a short rewrite is not truncated.
+        maxOutputTokens = 1024
+        responseMimeType = "text/plain"
+
+        let normalizedModelName = modelName.lowercased()
+        let usesLatestRequestFormat =
+            normalizedModelName.hasPrefix("gemini-3.6")
+            || normalizedModelName == "gemini-3.5-flash-lite"
+            || normalizedModelName == "gemini-flash-latest"
+        if usesLatestRequestFormat {
+            temperature = nil
+            topP = nil
+            candidateCount = nil
+            thinkingConfig = .init(
+                thinkingBudget: nil,
+                thinkingLevel: thinkingLevel.thinkingLevel
+            )
+        } else {
+            temperature = 0
+            topP = 1
+            candidateCount = 1
+            thinkingConfig = .init(
+                thinkingBudget: thinkingLevel.thinkingBudget,
+                thinkingLevel: nil
+            )
+        }
+    }
+}
+
 extension CandidateController {
     static let horizontal = HorizontalCandidateController()
     static let vertical = VerticalCandidateController()
@@ -1273,8 +1317,14 @@ extension McBopomofoInputMethodController {
     private func rankWholeInputtingBuffer(context: InputtingRankingContext) -> InputtingRewriteResponse {
         let prompt = makeInputtingRewritePrompt(context: context)
         let startNs = DispatchTime.now().uptimeNanoseconds
-        return rankWholeInputtingBufferWithGoogleCloud(
-            prompt: prompt, context: context, startNs: startNs)
+        switch Preferences.llmCloudProvider {
+        case .google:
+            return rankWholeInputtingBufferWithGoogleCloud(
+                prompt: prompt, context: context, startNs: startNs)
+        case .openAI:
+            return rankWholeInputtingBufferWithOpenAI(
+                prompt: prompt, context: context, startNs: startNs)
+        }
     }
 
     private func rankWholeInputtingBufferWithGoogleCloud(
@@ -1297,22 +1347,9 @@ extension McBopomofoInputMethodController {
                 let parts: [Part]
             }
 
-            struct ThinkingConfig: Encodable {
-                let thinkingBudget: Int
-            }
-
-            struct GenerationConfig: Encodable {
-                let temperature: Double
-                let topP: Double
-                let maxOutputTokens: Int
-                let candidateCount: Int
-                let responseMimeType: String
-                let thinkingConfig: ThinkingConfig?
-            }
-
             let systemInstruction: SystemInstruction
             let contents: [Content]
-            let generationConfig: GenerationConfig
+            let generationConfig: GoogleGenerateContentGenerationConfig
         }
         struct GenerateContentResponse: Decodable {
             struct Candidate: Decodable {
@@ -1387,18 +1424,13 @@ extension McBopomofoInputMethodController {
                 parts: [
                     .init(
                         text:
-                            "You are an IME same-pronunciation correction engine. Output only the corrected sentence. Never output analysis or chain-of-thought."
+                            "You are an IME same-pronunciation correction engine. Output the corrected sentence exactly once. The output must have exactly the same character count as the input sentence. Do not repeat, add, or omit any character. Output no analysis, explanation, formatting, or chain-of-thought."
                     )
                 ]),
             contents: [.init(parts: [.init(text: prompt)])],
             generationConfig: .init(
-                temperature: 0,
-                topP: 1,
-                maxOutputTokens: 128,
-                candidateCount: 1,
-                responseMimeType: "text/plain",
-                thinkingConfig: .init(
-                    thinkingBudget: Preferences.llmGoogleThinkingLevel.thinkingBudget)
+                modelName: modelName,
+                thinkingLevel: Preferences.llmGoogleThinkingLevel
             )
         )
         guard let jsonData = try? JSONEncoder().encode(body) else {
@@ -1474,6 +1506,185 @@ extension McBopomofoInputMethodController {
             )
         }
         let responseText = parts.compactMap(\.text).joined()
+        let rewrittenBuffer = parseInputtingRewrittenBuffer(
+            from: responseText,
+            expectedCharacterCount: context.composingBuffer.count
+        )
+        let selections = rewrittenBuffer.flatMap {
+            mapRewrittenBufferToSelections($0, segments: context.segments)
+        }
+        return InputtingRewriteResponse(
+            provider: provider,
+            prompt: prompt,
+            rawResponse: responseText,
+            elapsedMs: elapsedMs,
+            rewrittenBuffer: rewrittenBuffer,
+            selections: selections,
+            fallbackReason: selections == nil ? "parserFallback" : nil,
+            errorDescription: nil
+        )
+    }
+
+    private func rankWholeInputtingBufferWithOpenAI(
+        prompt: String,
+        context: InputtingRankingContext,
+        startNs: UInt64
+    ) -> InputtingRewriteResponse {
+        struct ChatCompletionsRequest: Encodable {
+            struct Message: Encodable {
+                let role: String
+                let content: String
+            }
+            let model: String
+            let messages: [Message]
+            let temperature: Double
+        }
+        struct ChatCompletionsResponse: Decodable {
+            struct Choice: Decodable {
+                struct Message: Decodable {
+                    let content: String?
+                }
+                let message: Message
+            }
+            let choices: [Choice]?
+        }
+
+        let provider = "OpenAICloud"
+        let timeout = max(0.05, Double(Preferences.llmCandidateRankingTimeoutMs) / 1000.0)
+        let endpointText = Preferences.llmOpenAIEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !endpointText.isEmpty else {
+            return InputtingRewriteResponse(
+                provider: provider,
+                prompt: prompt,
+                rawResponse: nil,
+                elapsedMs: 0,
+                rewrittenBuffer: nil,
+                selections: nil,
+                fallbackReason: "emptyCloudEndpoint",
+                errorDescription: nil
+            )
+        }
+        let modelName = Preferences.llmOpenAIModelName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !modelName.isEmpty else {
+            return InputtingRewriteResponse(
+                provider: provider,
+                prompt: prompt,
+                rawResponse: nil,
+                elapsedMs: 0,
+                rewrittenBuffer: nil,
+                selections: nil,
+                fallbackReason: "emptyCloudModelName",
+                errorDescription: nil
+            )
+        }
+        let apiKey = Preferences.llmOpenAIAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !apiKey.isEmpty else {
+            return InputtingRewriteResponse(
+                provider: provider,
+                prompt: prompt,
+                rawResponse: nil,
+                elapsedMs: 0,
+                rewrittenBuffer: nil,
+                selections: nil,
+                fallbackReason: "emptyOpenAIAPIKey",
+                errorDescription: nil
+            )
+        }
+        guard let endpoint = URL(string: endpointText) else {
+            return InputtingRewriteResponse(
+                provider: provider,
+                prompt: prompt,
+                rawResponse: nil,
+                elapsedMs: 0,
+                rewrittenBuffer: nil,
+                selections: nil,
+                fallbackReason: "invalidCloudEndpoint",
+                errorDescription: nil
+            )
+        }
+
+        let systemInstruction =
+            "You are an IME same-pronunciation correction engine. Output only the corrected sentence. Never output analysis or chain-of-thought."
+        let body = ChatCompletionsRequest(
+            model: modelName,
+            messages: [
+                .init(role: "system", content: systemInstruction),
+                .init(role: "user", content: prompt),
+            ],
+            temperature: 0
+        )
+        guard let jsonData = try? JSONEncoder().encode(body) else {
+            return InputtingRewriteResponse(
+                provider: provider,
+                prompt: prompt,
+                rawResponse: nil,
+                elapsedMs: 0,
+                rewrittenBuffer: nil,
+                selections: nil,
+                fallbackReason: "jsonEncodeFailed",
+                errorDescription: nil
+            )
+        }
+
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.httpBody = jsonData
+        request.timeoutInterval = timeout
+
+        let semaphore = DispatchSemaphore(value: 0)
+        var responseData: Data?
+        var responseError: Error?
+        URLSession.shared.dataTask(with: request) { data, _, error in
+            responseData = data
+            responseError = error
+            semaphore.signal()
+        }.resume()
+
+        let wait = semaphore.wait(timeout: .now() + timeout + 0.05)
+        let elapsedMs = Int((DispatchTime.now().uptimeNanoseconds - startNs) / 1_000_000)
+        if wait == .timedOut {
+            return InputtingRewriteResponse(
+                provider: provider,
+                prompt: prompt,
+                rawResponse: nil,
+                elapsedMs: elapsedMs,
+                rewrittenBuffer: nil,
+                selections: nil,
+                fallbackReason: "requestTimeout",
+                errorDescription: nil
+            )
+        }
+        guard let responseData else {
+            return InputtingRewriteResponse(
+                provider: provider,
+                prompt: prompt,
+                rawResponse: nil,
+                elapsedMs: elapsedMs,
+                rewrittenBuffer: nil,
+                selections: nil,
+                fallbackReason: "emptyResponse",
+                errorDescription: responseError.map { "\($0)" }
+            )
+        }
+        let rawResponse = String(data: responseData, encoding: .utf8)
+        guard
+            let parsed = try? JSONDecoder().decode(ChatCompletionsResponse.self, from: responseData),
+            let responseText = parsed.choices?.first?.message.content
+        else {
+            return InputtingRewriteResponse(
+                provider: provider,
+                prompt: prompt,
+                rawResponse: rawResponse,
+                elapsedMs: elapsedMs,
+                rewrittenBuffer: nil,
+                selections: nil,
+                fallbackReason: "invalidJSON",
+                errorDescription: nil
+            )
+        }
+
         let rewrittenBuffer = parseInputtingRewrittenBuffer(
             from: responseText,
             expectedCharacterCount: context.composingBuffer.count

@@ -254,18 +254,39 @@ final class PreferencesTests {
         #expect(Preferences.llmInputtingTriggerMode == .segmentEnd)
     }
 
+    @Test("Test LLM cloud provider")
+    func testLLMCloudProvider() {
+        #expect(Preferences.llmCloudProvider == .google)
+        Preferences.llmCloudProvider = .openAI
+        #expect(Preferences.llmCloudProvider == .openAI)
+    }
+
     @Test("Test LLM Google settings")
     func testLLMGoogleSettings() {
-        #expect(Preferences.llmGoogleModelName == "gemini-2.5-flash-lite")
+        #expect(Preferences.llmGoogleModelName == "gemini-3.6-flash")
         #expect(Preferences.llmGoogleEndpoint == "https://generativelanguage.googleapis.com/v1beta")
         #expect(Preferences.llmGoogleAPIKey == "")
 
-        Preferences.llmGoogleModelName = "gemini-2.5-flash"
-        #expect(Preferences.llmGoogleModelName == "gemini-2.5-flash")
+        Preferences.llmGoogleModelName = "gemini-flash-latest"
+        #expect(Preferences.llmGoogleModelName == "gemini-flash-latest")
         Preferences.llmGoogleEndpoint = "https://generativelanguage.googleapis.com/v1beta"
         #expect(Preferences.llmGoogleEndpoint == "https://generativelanguage.googleapis.com/v1beta")
         Preferences.llmGoogleAPIKey = "test-key"
         #expect(Preferences.llmGoogleAPIKey == "test-key")
+    }
+
+    @Test("Test LLM OpenAI settings")
+    func testLLMOpenAISettings() {
+        #expect(Preferences.llmOpenAIModelName == "gpt-4.1-mini")
+        #expect(Preferences.llmOpenAIEndpoint == "https://api.openai.com/v1/chat/completions")
+        #expect(Preferences.llmOpenAIAPIKey == "")
+
+        Preferences.llmOpenAIModelName = "gpt-4o-mini"
+        #expect(Preferences.llmOpenAIModelName == "gpt-4o-mini")
+        Preferences.llmOpenAIEndpoint = "https://api.openai.com/v1/chat/completions"
+        #expect(Preferences.llmOpenAIEndpoint == "https://api.openai.com/v1/chat/completions")
+        Preferences.llmOpenAIAPIKey = "test-key-openai"
+        #expect(Preferences.llmOpenAIAPIKey == "test-key-openai")
     }
 
 }

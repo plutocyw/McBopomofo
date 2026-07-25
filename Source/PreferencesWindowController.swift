@@ -66,10 +66,14 @@ private let kWindowTitleHeight: CGFloat = 78
     private var llmPauseStepper: NSStepper?
     private var llmInputtingTriggerModeLabel: NSTextField?
     private var llmInputtingTriggerModePopUpButton: NSPopUpButton?
+    private var llmCloudProviderLabel: NSTextField?
+    private var llmCloudProviderPopUpButton: NSPopUpButton?
     private var llmGoogleModelLabel: NSTextField?
-    private var llmGoogleModelTextField: NSTextField?
+    private var llmGoogleModelPopUpButton: NSPopUpButton?
+    private var llmGoogleModelCustomButton: NSButton?
     private var llmGoogleEndpointLabel: NSTextField?
-    private var llmGoogleEndpointTextField: NSTextField?
+    private var llmGoogleEndpointPopUpButton: NSPopUpButton?
+    private var llmGoogleEndpointCustomButton: NSButton?
     private var llmGoogleAPIKeyLabel: NSTextField?
     private var llmGoogleAPIKeySecureTextField: NSSecureTextField?
     private var llmGoogleAPIKeyPlainTextField: NSTextField?
@@ -77,6 +81,15 @@ private let kWindowTitleHeight: CGFloat = 78
     private var llmGoogleAPIKeyRevealed = false
     private var llmGoogleThinkingLevelLabel: NSTextField?
     private var llmGoogleThinkingLevelPopUpButton: NSPopUpButton?
+    private var llmOpenAIModelLabel: NSTextField?
+    private var llmOpenAIModelTextField: NSTextField?
+    private var llmOpenAIEndpointLabel: NSTextField?
+    private var llmOpenAIEndpointTextField: NSTextField?
+    private var llmOpenAIAPIKeyLabel: NSTextField?
+    private var llmOpenAIAPIKeySecureTextField: NSSecureTextField?
+    private var llmOpenAIAPIKeyPlainTextField: NSTextField?
+    private var llmOpenAIAPIKeyRevealButton: NSButton?
+    private var llmOpenAIAPIKeyRevealed = false
 
     override func awakeFromNib() {
         let toolbar = NSToolbar(identifier: "preference toolbar")
@@ -372,17 +385,48 @@ private let kWindowTitleHeight: CGFloat = 78
         refreshLLMControlsState()
     }
 
-    @objc private func changeLLMGoogleModel(_ sender: NSTextField) {
-        let text = sender.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        Preferences.llmGoogleModelName = text.isEmpty ? "gemini-2.5-flash-lite" : text
+    @objc private func changeLLMCloudProvider(_ sender: NSPopUpButton) {
+        guard let selectedItem = sender.selectedItem else {
+            return
+        }
+        Preferences.llmCloudProvider = LLMCloudProvider(rawValue: selectedItem.tag) ?? .google
         refreshLLMControlsState()
     }
 
-    @objc private func changeLLMGoogleEndpoint(_ sender: NSTextField) {
-        let text = sender.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        Preferences.llmGoogleEndpoint =
-            text.isEmpty ? "https://generativelanguage.googleapis.com/v1beta" : text
+    @objc private func changeLLMGoogleModelPreset(_ sender: NSPopUpButton) {
+        guard let value = sender.selectedItem?.representedObject as? String else {
+            return
+        }
+        Preferences.llmGoogleModelName = value
         refreshLLMControlsState()
+    }
+
+    @objc private func customizeLLMGoogleModel(_ sender: NSButton) {
+        promptForCustomLLMValue(
+            title: NSLocalizedString("Cloud Model", comment: ""),
+            currentValue: Preferences.llmGoogleModelName
+        ) { [weak self] value in
+            Preferences.llmGoogleModelName = value
+            self?.refreshLLMControlsState()
+        }
+    }
+
+    @objc private func changeLLMGoogleEndpointPreset(_ sender: NSPopUpButton) {
+        guard let value = sender.selectedItem?.representedObject as? String else {
+            return
+        }
+        Preferences.llmGoogleEndpoint = value
+        refreshLLMControlsState()
+    }
+
+    @objc private func customizeLLMGoogleEndpoint(_ sender: NSButton) {
+        promptForCustomLLMValue(
+            title: NSLocalizedString("Cloud Endpoint", comment: ""),
+            currentValue: Preferences.llmGoogleEndpoint
+        ) { [weak self] value in
+            Preferences.llmGoogleEndpoint = value
+            self?.refreshLLMControlsState()
+        }
     }
 
     @objc private func changeLLMGoogleAPIKey(_ sender: NSTextField) {
@@ -405,17 +449,87 @@ private let kWindowTitleHeight: CGFloat = 78
         refreshLLMControlsState()
     }
 
+    @objc private func changeLLMOpenAIModel(_ sender: NSTextField) {
+        let text = sender.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        Preferences.llmOpenAIModelName = text.isEmpty ? "gpt-4.1-mini" : text
+        refreshLLMControlsState()
+    }
+
+    @objc private func changeLLMOpenAIEndpoint(_ sender: NSTextField) {
+        let text = sender.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        Preferences.llmOpenAIEndpoint =
+            text.isEmpty ? "https://api.openai.com/v1/chat/completions" : text
+        refreshLLMControlsState()
+    }
+
+    @objc private func changeLLMOpenAIAPIKey(_ sender: NSTextField) {
+        Preferences.llmOpenAIAPIKey = sender.stringValue.trimmingCharacters(
+            in: .whitespacesAndNewlines)
+        refreshLLMControlsState()
+    }
+
+    @objc private func toggleLLMOpenAIAPIKeyVisibility(_ sender: NSButton) {
+        llmOpenAIAPIKeyRevealed.toggle()
+        refreshLLMControlsState()
+    }
+
+    private func populatePresetPopup(button: NSPopUpButton, presets: [String], currentValue: String) {
+        button.removeAllItems()
+        for value in presets {
+            button.addItem(withTitle: value)
+            button.lastItem?.representedObject = value
+        }
+        if let index = presets.firstIndex(of: currentValue) {
+            button.selectItem(at: index)
+        } else {
+            button.addItem(withTitle: String(format: NSLocalizedString("Custom: %@", comment: ""), currentValue))
+            button.lastItem?.representedObject = currentValue
+            button.select(button.lastItem)
+        }
+    }
+
+    private func promptForCustomLLMValue(
+        title: String,
+        currentValue: String,
+        onSave: @escaping (String) -> Void
+    ) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = NSLocalizedString("Enter custom value", comment: "")
+        alert.addButton(withTitle: NSLocalizedString("OK", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
+        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 420, height: 24))
+        textField.stringValue = currentValue
+        alert.accessoryView = textField
+        let response = alert.runModal()
+        guard response == .alertFirstButtonReturn else {
+            return
+        }
+        let value = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else {
+            return
+        }
+        onSave(value)
+    }
+
     private func configureLLMControls() {
         if llmRankingEnabledButton != nil
             || llmTimeoutLabel != nil || llmTimeoutTextField != nil || llmTimeoutStepper != nil
             || llmPauseLabel != nil || llmPauseTextField != nil || llmPauseStepper != nil
             || llmInputtingTriggerModeLabel != nil || llmInputtingTriggerModePopUpButton != nil
+            || llmCloudProviderLabel != nil || llmCloudProviderPopUpButton != nil
             || llmActivityIndicatorButton != nil || llmDebugAlertButton != nil
-            || llmGoogleModelLabel != nil || llmGoogleModelTextField != nil
-            || llmGoogleEndpointLabel != nil || llmGoogleEndpointTextField != nil
+            || llmGoogleModelLabel != nil || llmGoogleModelPopUpButton != nil
+            || llmGoogleModelCustomButton != nil
+            || llmGoogleEndpointLabel != nil || llmGoogleEndpointPopUpButton != nil
+            || llmGoogleEndpointCustomButton != nil
             || llmGoogleAPIKeyLabel != nil || llmGoogleAPIKeySecureTextField != nil
             || llmGoogleAPIKeyPlainTextField != nil || llmGoogleAPIKeyRevealButton != nil
             || llmGoogleThinkingLevelLabel != nil || llmGoogleThinkingLevelPopUpButton != nil
+            || llmOpenAIModelLabel != nil || llmOpenAIModelTextField != nil
+            || llmOpenAIEndpointLabel != nil || llmOpenAIEndpointTextField != nil
+            || llmOpenAIAPIKeyLabel != nil || llmOpenAIAPIKeySecureTextField != nil
+            || llmOpenAIAPIKeyPlainTextField != nil || llmOpenAIAPIKeyRevealButton != nil
         {
             refreshLLMControlsState()
             return
@@ -495,23 +609,51 @@ private let kWindowTitleHeight: CGFloat = 78
             withTitle: NSLocalizedString("Segment End (Punctuation/Space)", comment: ""))
         triggerModePopUpButton.lastItem?.tag = LLMInputtingTriggerMode.segmentEnd.rawValue
 
+        let cloudProviderLabel = NSTextField(labelWithString: "")
+        cloudProviderLabel.translatesAutoresizingMaskIntoConstraints = false
+        cloudProviderLabel.stringValue = NSLocalizedString("Cloud Provider", comment: "")
+
+        let cloudProviderPopUpButton = NSPopUpButton(frame: .zero, pullsDown: false)
+        cloudProviderPopUpButton.translatesAutoresizingMaskIntoConstraints = false
+        cloudProviderPopUpButton.target = self
+        cloudProviderPopUpButton.action = #selector(changeLLMCloudProvider(_:))
+        cloudProviderPopUpButton.removeAllItems()
+        cloudProviderPopUpButton.addItem(withTitle: NSLocalizedString("Google", comment: ""))
+        cloudProviderPopUpButton.lastItem?.tag = LLMCloudProvider.google.rawValue
+        cloudProviderPopUpButton.addItem(withTitle: NSLocalizedString("OpenAI", comment: ""))
+        cloudProviderPopUpButton.lastItem?.tag = LLMCloudProvider.openAI.rawValue
+
         let googleModelLabel = NSTextField(labelWithString: "")
         googleModelLabel.translatesAutoresizingMaskIntoConstraints = false
         googleModelLabel.stringValue = NSLocalizedString("Cloud Model", comment: "")
 
-        let googleModelTextField = NSTextField(frame: .zero)
-        googleModelTextField.translatesAutoresizingMaskIntoConstraints = false
-        googleModelTextField.target = self
-        googleModelTextField.action = #selector(changeLLMGoogleModel(_:))
+        let googleModelPopUpButton = NSPopUpButton(frame: .zero, pullsDown: false)
+        googleModelPopUpButton.translatesAutoresizingMaskIntoConstraints = false
+        googleModelPopUpButton.target = self
+        googleModelPopUpButton.action = #selector(changeLLMGoogleModelPreset(_:))
+
+        let googleModelCustomButton = NSButton(title: NSLocalizedString("Custom", comment: ""), target: nil, action: nil)
+        googleModelCustomButton.translatesAutoresizingMaskIntoConstraints = false
+        googleModelCustomButton.setButtonType(.momentaryPushIn)
+        googleModelCustomButton.bezelStyle = .rounded
+        googleModelCustomButton.target = self
+        googleModelCustomButton.action = #selector(customizeLLMGoogleModel(_:))
 
         let googleEndpointLabel = NSTextField(labelWithString: "")
         googleEndpointLabel.translatesAutoresizingMaskIntoConstraints = false
         googleEndpointLabel.stringValue = NSLocalizedString("Cloud Endpoint", comment: "")
 
-        let googleEndpointTextField = NSTextField(frame: .zero)
-        googleEndpointTextField.translatesAutoresizingMaskIntoConstraints = false
-        googleEndpointTextField.target = self
-        googleEndpointTextField.action = #selector(changeLLMGoogleEndpoint(_:))
+        let googleEndpointPopUpButton = NSPopUpButton(frame: .zero, pullsDown: false)
+        googleEndpointPopUpButton.translatesAutoresizingMaskIntoConstraints = false
+        googleEndpointPopUpButton.target = self
+        googleEndpointPopUpButton.action = #selector(changeLLMGoogleEndpointPreset(_:))
+
+        let googleEndpointCustomButton = NSButton(title: NSLocalizedString("Custom", comment: ""), target: nil, action: nil)
+        googleEndpointCustomButton.translatesAutoresizingMaskIntoConstraints = false
+        googleEndpointCustomButton.setButtonType(.momentaryPushIn)
+        googleEndpointCustomButton.bezelStyle = .rounded
+        googleEndpointCustomButton.target = self
+        googleEndpointCustomButton.action = #selector(customizeLLMGoogleEndpoint(_:))
 
         let googleAPIKeyLabel = NSTextField(labelWithString: "")
         googleAPIKeyLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -552,6 +694,45 @@ private let kWindowTitleHeight: CGFloat = 78
         googleThinkingLevelPopUpButton.addItem(withTitle: NSLocalizedString("High", comment: ""))
         googleThinkingLevelPopUpButton.lastItem?.tag = LLMGoogleThinkingLevel.high.rawValue
 
+        let openAIModelLabel = NSTextField(labelWithString: "")
+        openAIModelLabel.translatesAutoresizingMaskIntoConstraints = false
+        openAIModelLabel.stringValue = NSLocalizedString("Cloud Model", comment: "")
+
+        let openAIModelTextField = NSTextField(frame: .zero)
+        openAIModelTextField.translatesAutoresizingMaskIntoConstraints = false
+        openAIModelTextField.target = self
+        openAIModelTextField.action = #selector(changeLLMOpenAIModel(_:))
+
+        let openAIEndpointLabel = NSTextField(labelWithString: "")
+        openAIEndpointLabel.translatesAutoresizingMaskIntoConstraints = false
+        openAIEndpointLabel.stringValue = NSLocalizedString("Cloud Endpoint", comment: "")
+
+        let openAIEndpointTextField = NSTextField(frame: .zero)
+        openAIEndpointTextField.translatesAutoresizingMaskIntoConstraints = false
+        openAIEndpointTextField.target = self
+        openAIEndpointTextField.action = #selector(changeLLMOpenAIEndpoint(_:))
+
+        let openAIAPIKeyLabel = NSTextField(labelWithString: "")
+        openAIAPIKeyLabel.translatesAutoresizingMaskIntoConstraints = false
+        openAIAPIKeyLabel.stringValue = NSLocalizedString("OpenAI API Key", comment: "")
+
+        let openAIAPIKeySecureTextField = NSSecureTextField(frame: .zero)
+        openAIAPIKeySecureTextField.translatesAutoresizingMaskIntoConstraints = false
+        openAIAPIKeySecureTextField.target = self
+        openAIAPIKeySecureTextField.action = #selector(changeLLMOpenAIAPIKey(_:))
+
+        let openAIAPIKeyPlainTextField = NSTextField(frame: .zero)
+        openAIAPIKeyPlainTextField.translatesAutoresizingMaskIntoConstraints = false
+        openAIAPIKeyPlainTextField.target = self
+        openAIAPIKeyPlainTextField.action = #selector(changeLLMOpenAIAPIKey(_:))
+
+        let openAIAPIKeyRevealButton = NSButton(title: "", target: nil, action: nil)
+        openAIAPIKeyRevealButton.translatesAutoresizingMaskIntoConstraints = false
+        openAIAPIKeyRevealButton.setButtonType(.momentaryPushIn)
+        openAIAPIKeyRevealButton.bezelStyle = .rounded
+        openAIAPIKeyRevealButton.target = self
+        openAIAPIKeyRevealButton.action = #selector(toggleLLMOpenAIAPIKeyVisibility(_:))
+
         advancedSettingsView.addSubview(rankingButton)
         advancedSettingsView.addSubview(activityIndicatorButton)
         advancedSettingsView.addSubview(debugAlertButton)
@@ -563,16 +744,28 @@ private let kWindowTitleHeight: CGFloat = 78
         advancedSettingsView.addSubview(pauseStepper)
         advancedSettingsView.addSubview(triggerModeLabel)
         advancedSettingsView.addSubview(triggerModePopUpButton)
+        advancedSettingsView.addSubview(cloudProviderLabel)
+        advancedSettingsView.addSubview(cloudProviderPopUpButton)
         advancedSettingsView.addSubview(googleModelLabel)
-        advancedSettingsView.addSubview(googleModelTextField)
+        advancedSettingsView.addSubview(googleModelPopUpButton)
+        advancedSettingsView.addSubview(googleModelCustomButton)
         advancedSettingsView.addSubview(googleEndpointLabel)
-        advancedSettingsView.addSubview(googleEndpointTextField)
+        advancedSettingsView.addSubview(googleEndpointPopUpButton)
+        advancedSettingsView.addSubview(googleEndpointCustomButton)
         advancedSettingsView.addSubview(googleAPIKeyLabel)
         advancedSettingsView.addSubview(googleAPIKeySecureTextField)
         advancedSettingsView.addSubview(googleAPIKeyPlainTextField)
         advancedSettingsView.addSubview(googleAPIKeyRevealButton)
         advancedSettingsView.addSubview(googleThinkingLevelLabel)
         advancedSettingsView.addSubview(googleThinkingLevelPopUpButton)
+        advancedSettingsView.addSubview(openAIModelLabel)
+        advancedSettingsView.addSubview(openAIModelTextField)
+        advancedSettingsView.addSubview(openAIEndpointLabel)
+        advancedSettingsView.addSubview(openAIEndpointTextField)
+        advancedSettingsView.addSubview(openAIAPIKeyLabel)
+        advancedSettingsView.addSubview(openAIAPIKeySecureTextField)
+        advancedSettingsView.addSubview(openAIAPIKeyPlainTextField)
+        advancedSettingsView.addSubview(openAIAPIKeyRevealButton)
 
         NSLayoutConstraint.activate([
             rankingButton.leadingAnchor.constraint(
@@ -630,25 +823,45 @@ private let kWindowTitleHeight: CGFloat = 78
             triggerModePopUpButton.trailingAnchor.constraint(
                 lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
 
-            googleModelLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
-            googleModelLabel.bottomAnchor.constraint(
+            cloudProviderLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
+            cloudProviderLabel.bottomAnchor.constraint(
                 equalTo: triggerModeLabel.topAnchor, constant: -kLLMControlSpacing),
 
-            googleModelTextField.leadingAnchor.constraint(
-                equalTo: googleModelLabel.trailingAnchor, constant: 8),
-            googleModelTextField.centerYAnchor.constraint(equalTo: googleModelLabel.centerYAnchor),
-            googleModelTextField.trailingAnchor.constraint(
+            cloudProviderPopUpButton.leadingAnchor.constraint(
+                equalTo: cloudProviderLabel.trailingAnchor, constant: 8),
+            cloudProviderPopUpButton.centerYAnchor.constraint(equalTo: cloudProviderLabel.centerYAnchor),
+            cloudProviderPopUpButton.trailingAnchor.constraint(
                 lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+
+            googleModelLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
+            googleModelLabel.bottomAnchor.constraint(
+                equalTo: cloudProviderLabel.topAnchor, constant: -kLLMControlSpacing),
+
+            googleModelCustomButton.trailingAnchor.constraint(
+                lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+            googleModelCustomButton.centerYAnchor.constraint(equalTo: googleModelLabel.centerYAnchor),
+            googleModelCustomButton.widthAnchor.constraint(equalToConstant: 72),
+
+            googleModelPopUpButton.leadingAnchor.constraint(
+                equalTo: googleModelLabel.trailingAnchor, constant: 8),
+            googleModelPopUpButton.centerYAnchor.constraint(equalTo: googleModelLabel.centerYAnchor),
+            googleModelPopUpButton.trailingAnchor.constraint(
+                equalTo: googleModelCustomButton.leadingAnchor, constant: -8),
 
             googleEndpointLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
             googleEndpointLabel.bottomAnchor.constraint(
                 equalTo: googleModelLabel.topAnchor, constant: -kLLMControlSpacing),
 
-            googleEndpointTextField.leadingAnchor.constraint(
-                equalTo: googleEndpointLabel.trailingAnchor, constant: 8),
-            googleEndpointTextField.centerYAnchor.constraint(equalTo: googleEndpointLabel.centerYAnchor),
-            googleEndpointTextField.trailingAnchor.constraint(
+            googleEndpointCustomButton.trailingAnchor.constraint(
                 lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+            googleEndpointCustomButton.centerYAnchor.constraint(equalTo: googleEndpointLabel.centerYAnchor),
+            googleEndpointCustomButton.widthAnchor.constraint(equalToConstant: 72),
+
+            googleEndpointPopUpButton.leadingAnchor.constraint(
+                equalTo: googleEndpointLabel.trailingAnchor, constant: 8),
+            googleEndpointPopUpButton.centerYAnchor.constraint(equalTo: googleEndpointLabel.centerYAnchor),
+            googleEndpointPopUpButton.trailingAnchor.constraint(
+                equalTo: googleEndpointCustomButton.leadingAnchor, constant: -8),
 
             googleAPIKeyLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
             googleAPIKeyLabel.bottomAnchor.constraint(
@@ -681,6 +894,47 @@ private let kWindowTitleHeight: CGFloat = 78
                 equalTo: googleThinkingLevelLabel.centerYAnchor),
             googleThinkingLevelPopUpButton.trailingAnchor.constraint(
                 lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+
+            openAIModelLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
+            openAIModelLabel.bottomAnchor.constraint(
+                equalTo: cloudProviderLabel.topAnchor, constant: -kLLMControlSpacing),
+
+            openAIModelTextField.leadingAnchor.constraint(
+                equalTo: openAIModelLabel.trailingAnchor, constant: 8),
+            openAIModelTextField.centerYAnchor.constraint(equalTo: openAIModelLabel.centerYAnchor),
+            openAIModelTextField.trailingAnchor.constraint(
+                lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+
+            openAIEndpointLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
+            openAIEndpointLabel.bottomAnchor.constraint(
+                equalTo: openAIModelLabel.topAnchor, constant: -kLLMControlSpacing),
+
+            openAIEndpointTextField.leadingAnchor.constraint(
+                equalTo: openAIEndpointLabel.trailingAnchor, constant: 8),
+            openAIEndpointTextField.centerYAnchor.constraint(equalTo: openAIEndpointLabel.centerYAnchor),
+            openAIEndpointTextField.trailingAnchor.constraint(
+                lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+
+            openAIAPIKeyLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
+            openAIAPIKeyLabel.bottomAnchor.constraint(
+                equalTo: openAIEndpointLabel.topAnchor, constant: -kLLMControlSpacing),
+
+            openAIAPIKeyRevealButton.trailingAnchor.constraint(
+                lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+            openAIAPIKeyRevealButton.centerYAnchor.constraint(equalTo: openAIAPIKeyLabel.centerYAnchor),
+            openAIAPIKeyRevealButton.widthAnchor.constraint(equalToConstant: 56),
+
+            openAIAPIKeySecureTextField.leadingAnchor.constraint(
+                equalTo: openAIAPIKeyLabel.trailingAnchor, constant: 8),
+            openAIAPIKeySecureTextField.centerYAnchor.constraint(equalTo: openAIAPIKeyLabel.centerYAnchor),
+            openAIAPIKeySecureTextField.trailingAnchor.constraint(
+                equalTo: openAIAPIKeyRevealButton.leadingAnchor, constant: -8),
+
+            openAIAPIKeyPlainTextField.leadingAnchor.constraint(
+                equalTo: openAIAPIKeyLabel.trailingAnchor, constant: 8),
+            openAIAPIKeyPlainTextField.centerYAnchor.constraint(equalTo: openAIAPIKeyLabel.centerYAnchor),
+            openAIAPIKeyPlainTextField.trailingAnchor.constraint(
+                equalTo: openAIAPIKeyRevealButton.leadingAnchor, constant: -8),
         ])
 
         llmRankingEnabledButton = rankingButton
@@ -694,16 +948,28 @@ private let kWindowTitleHeight: CGFloat = 78
         llmPauseStepper = pauseStepper
         llmInputtingTriggerModeLabel = triggerModeLabel
         llmInputtingTriggerModePopUpButton = triggerModePopUpButton
+        llmCloudProviderLabel = cloudProviderLabel
+        llmCloudProviderPopUpButton = cloudProviderPopUpButton
         llmGoogleModelLabel = googleModelLabel
-        llmGoogleModelTextField = googleModelTextField
+        llmGoogleModelPopUpButton = googleModelPopUpButton
+        llmGoogleModelCustomButton = googleModelCustomButton
         llmGoogleEndpointLabel = googleEndpointLabel
-        llmGoogleEndpointTextField = googleEndpointTextField
+        llmGoogleEndpointPopUpButton = googleEndpointPopUpButton
+        llmGoogleEndpointCustomButton = googleEndpointCustomButton
         llmGoogleAPIKeyLabel = googleAPIKeyLabel
         llmGoogleAPIKeySecureTextField = googleAPIKeySecureTextField
         llmGoogleAPIKeyPlainTextField = googleAPIKeyPlainTextField
         llmGoogleAPIKeyRevealButton = googleAPIKeyRevealButton
         llmGoogleThinkingLevelLabel = googleThinkingLevelLabel
         llmGoogleThinkingLevelPopUpButton = googleThinkingLevelPopUpButton
+        llmOpenAIModelLabel = openAIModelLabel
+        llmOpenAIModelTextField = openAIModelTextField
+        llmOpenAIEndpointLabel = openAIEndpointLabel
+        llmOpenAIEndpointTextField = openAIEndpointTextField
+        llmOpenAIAPIKeyLabel = openAIAPIKeyLabel
+        llmOpenAIAPIKeySecureTextField = openAIAPIKeySecureTextField
+        llmOpenAIAPIKeyPlainTextField = openAIAPIKeyPlainTextField
+        llmOpenAIAPIKeyRevealButton = openAIAPIKeyRevealButton
         refreshLLMControlsState()
     }
 
@@ -724,34 +990,87 @@ private let kWindowTitleHeight: CGFloat = 78
         llmInputtingTriggerModePopUpButton?.isEnabled = isEnabled
         llmInputtingTriggerModePopUpButton?.selectItem(
             withTag: Preferences.llmInputtingTriggerMode.rawValue)
+        llmCloudProviderLabel?.isEnabled = isEnabled
+        llmCloudProviderPopUpButton?.isEnabled = isEnabled
+        llmCloudProviderPopUpButton?.selectItem(withTag: Preferences.llmCloudProvider.rawValue)
         llmTimeoutTextField?.integerValue = Preferences.llmCandidateRankingTimeoutMs
         llmTimeoutStepper?.integerValue = Preferences.llmCandidateRankingTimeoutMs
         llmPauseTextField?.integerValue = Preferences.llmInputtingPauseMs
         llmPauseStepper?.integerValue = Preferences.llmInputtingPauseMs
 
-        let googleEnabled = isEnabled
+        let googleEnabled = isEnabled && Preferences.llmCloudProvider == .google
         llmGoogleModelLabel?.isEnabled = googleEnabled
-        llmGoogleModelTextField?.isEnabled = googleEnabled
+        llmGoogleModelPopUpButton?.isEnabled = googleEnabled
+        llmGoogleModelCustomButton?.isEnabled = googleEnabled
         llmGoogleEndpointLabel?.isEnabled = googleEnabled
-        llmGoogleEndpointTextField?.isEnabled = googleEnabled
+        llmGoogleEndpointPopUpButton?.isEnabled = googleEnabled
+        llmGoogleEndpointCustomButton?.isEnabled = googleEnabled
         llmGoogleAPIKeyLabel?.isEnabled = googleEnabled
         llmGoogleAPIKeySecureTextField?.isEnabled = googleEnabled
         llmGoogleAPIKeyPlainTextField?.isEnabled = googleEnabled
         llmGoogleAPIKeyRevealButton?.isEnabled = googleEnabled
         llmGoogleThinkingLevelLabel?.isEnabled = googleEnabled
         llmGoogleThinkingLevelPopUpButton?.isEnabled = googleEnabled
-        llmGoogleModelTextField?.stringValue = Preferences.llmGoogleModelName
-        llmGoogleEndpointTextField?.stringValue = Preferences.llmGoogleEndpoint
+        llmGoogleModelLabel?.isHidden = !googleEnabled
+        llmGoogleModelPopUpButton?.isHidden = !googleEnabled
+        llmGoogleModelCustomButton?.isHidden = !googleEnabled
+        llmGoogleEndpointLabel?.isHidden = !googleEnabled
+        llmGoogleEndpointPopUpButton?.isHidden = !googleEnabled
+        llmGoogleEndpointCustomButton?.isHidden = !googleEnabled
+        llmGoogleAPIKeyLabel?.isHidden = !googleEnabled
+        llmGoogleAPIKeyRevealButton?.isHidden = !googleEnabled
+        llmGoogleThinkingLevelLabel?.isHidden = !googleEnabled
+        llmGoogleThinkingLevelPopUpButton?.isHidden = !googleEnabled
+        if let popup = llmGoogleModelPopUpButton {
+            populatePresetPopup(
+                button: popup,
+                presets: Preferences.googlePresetModelNames,
+                currentValue: Preferences.llmGoogleModelName
+            )
+        }
+        if let popup = llmGoogleEndpointPopUpButton {
+            populatePresetPopup(
+                button: popup,
+                presets: Preferences.googlePresetEndpoints,
+                currentValue: Preferences.llmGoogleEndpoint
+            )
+        }
         llmGoogleAPIKeySecureTextField?.stringValue = Preferences.llmGoogleAPIKey
         llmGoogleAPIKeyPlainTextField?.stringValue = Preferences.llmGoogleAPIKey
-        llmGoogleAPIKeySecureTextField?.isHidden = llmGoogleAPIKeyRevealed
-        llmGoogleAPIKeyPlainTextField?.isHidden = !llmGoogleAPIKeyRevealed
+        llmGoogleAPIKeySecureTextField?.isHidden = !googleEnabled || llmGoogleAPIKeyRevealed
+        llmGoogleAPIKeyPlainTextField?.isHidden = !googleEnabled || !llmGoogleAPIKeyRevealed
         llmGoogleAPIKeyRevealButton?.title =
             llmGoogleAPIKeyRevealed
             ? NSLocalizedString("Hide", comment: "")
             : NSLocalizedString("Show", comment: "")
         llmGoogleThinkingLevelPopUpButton?.selectItem(
             withTag: Preferences.llmGoogleThinkingLevel.rawValue)
+
+        let openAIEnabled = isEnabled && Preferences.llmCloudProvider == .openAI
+        llmOpenAIModelLabel?.isEnabled = openAIEnabled
+        llmOpenAIModelTextField?.isEnabled = openAIEnabled
+        llmOpenAIEndpointLabel?.isEnabled = openAIEnabled
+        llmOpenAIEndpointTextField?.isEnabled = openAIEnabled
+        llmOpenAIAPIKeyLabel?.isEnabled = openAIEnabled
+        llmOpenAIAPIKeySecureTextField?.isEnabled = openAIEnabled
+        llmOpenAIAPIKeyPlainTextField?.isEnabled = openAIEnabled
+        llmOpenAIAPIKeyRevealButton?.isEnabled = openAIEnabled
+        llmOpenAIModelLabel?.isHidden = !openAIEnabled
+        llmOpenAIModelTextField?.isHidden = !openAIEnabled
+        llmOpenAIEndpointLabel?.isHidden = !openAIEnabled
+        llmOpenAIEndpointTextField?.isHidden = !openAIEnabled
+        llmOpenAIAPIKeyLabel?.isHidden = !openAIEnabled
+        llmOpenAIAPIKeyRevealButton?.isHidden = !openAIEnabled
+        llmOpenAIModelTextField?.stringValue = Preferences.llmOpenAIModelName
+        llmOpenAIEndpointTextField?.stringValue = Preferences.llmOpenAIEndpoint
+        llmOpenAIAPIKeySecureTextField?.stringValue = Preferences.llmOpenAIAPIKey
+        llmOpenAIAPIKeyPlainTextField?.stringValue = Preferences.llmOpenAIAPIKey
+        llmOpenAIAPIKeySecureTextField?.isHidden = !openAIEnabled || llmOpenAIAPIKeyRevealed
+        llmOpenAIAPIKeyPlainTextField?.isHidden = !openAIEnabled || !llmOpenAIAPIKeyRevealed
+        llmOpenAIAPIKeyRevealButton?.title =
+            llmOpenAIAPIKeyRevealed
+            ? NSLocalizedString("Hide", comment: "")
+            : NSLocalizedString("Show", comment: "")
     }
 }
 

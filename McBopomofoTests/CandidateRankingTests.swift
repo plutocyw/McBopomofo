@@ -289,6 +289,71 @@ struct CandidateRankingTests {
         #expect(parsed == [1, 0, 2])
     }
 
+    @Test(
+        "Gemini 3.6 request preserves thinking level",
+        arguments: [
+            (LLMGoogleThinkingLevel.off, "minimal"),
+            (LLMGoogleThinkingLevel.low, "low"),
+            (LLMGoogleThinkingLevel.medium, "medium"),
+            (LLMGoogleThinkingLevel.high, "high"),
+        ])
+    func gemini36RequestPreservesThinkingLevel(
+        thinkingLevel: LLMGoogleThinkingLevel,
+        expectedThinkingLevel: String
+    ) throws {
+        let config = GoogleGenerateContentGenerationConfig(
+            modelName: "gemini-3.6-flash",
+            thinkingLevel: thinkingLevel
+        )
+        let data = try JSONEncoder().encode(config)
+        let object = try JSONSerialization.jsonObject(with: data)
+        let json = object as? [String: Any]
+        let thinkingConfig = json?["thinkingConfig"] as? [String: Any]
+
+        #expect(json?["temperature"] == nil)
+        #expect(json?["topP"] == nil)
+        #expect(json?["candidateCount"] == nil)
+        #expect(thinkingConfig?["thinkingBudget"] == nil)
+        #expect(thinkingConfig?["thinkingLevel"] as? String == expectedThinkingLevel)
+        #expect(json?["maxOutputTokens"] as? Int == 1024)
+    }
+
+    @Test("Gemini latest request uses thinking level")
+    func geminiLatestRequestUsesThinkingLevel() throws {
+        let config = GoogleGenerateContentGenerationConfig(
+            modelName: "gemini-flash-latest",
+            thinkingLevel: .high
+        )
+        let data = try JSONEncoder().encode(config)
+        let object = try JSONSerialization.jsonObject(with: data)
+        let json = object as? [String: Any]
+        let thinkingConfig = json?["thinkingConfig"] as? [String: Any]
+
+        #expect(json?["temperature"] == nil)
+        #expect(json?["topP"] == nil)
+        #expect(json?["candidateCount"] == nil)
+        #expect(thinkingConfig?["thinkingBudget"] == nil)
+        #expect(thinkingConfig?["thinkingLevel"] as? String == "high")
+    }
+
+    @Test("Gemini 2.5 request keeps thinking budget")
+    func gemini25RequestKeepsThinkingBudget() throws {
+        let config = GoogleGenerateContentGenerationConfig(
+            modelName: "gemini-2.5-flash",
+            thinkingLevel: .medium
+        )
+        let data = try JSONEncoder().encode(config)
+        let object = try JSONSerialization.jsonObject(with: data)
+        let json = object as? [String: Any]
+        let thinkingConfig = json?["thinkingConfig"] as? [String: Any]
+
+        #expect(json?["temperature"] as? Double == 0)
+        #expect(json?["topP"] as? Double == 1)
+        #expect(json?["candidateCount"] as? Int == 1)
+        #expect(thinkingConfig?["thinkingBudget"] as? Int == 1024)
+        #expect(thinkingConfig?["thinkingLevel"] == nil)
+    }
+
     @Test("Stats record and reset")
     func candidateRankingStatsRecordAndReset() {
         CandidateRankingStats.reset()

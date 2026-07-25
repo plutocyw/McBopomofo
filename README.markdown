@@ -34,10 +34,11 @@
 3. 取得 Google API Key：
    - 可參考 Google 官方說明：[Get an API key](https://support.google.com/googleapi/answer/6158862?hl=en)
 4. 先套用推薦設定（可作為大多數使用者的起始值）：
+   - `Cloud Provider`: `Google`
    - `Thinking Level`: `Off`
    - `Google API Key`: 你的 Google API Key
    - `Cloud Endpoint`: `https://generativelanguage.googleapis.com/v1beta`
-   - `Cloud Model`: `gemini-3-flash-preview`
+   - `Cloud Model`: `gemini-3.6-flash`
    - `LLM Trigger Mode`: `Continuous`
    - `LLM Pause Before Trigger (ms)`: `600`
    - `LLM Timeout (ms)`: `2500`
@@ -45,9 +46,15 @@
    - `Show LLM Debug Alert (Prompt/Response)`: `Off`
    - `Use Cloud LLM Buffer Correction`: `On`
 
+5. 如需改用 OpenAI：
+   - `Cloud Provider`: `OpenAI`
+   - `OpenAI API Key`: 你的 OpenAI API Key
+   - `Cloud Endpoint` 與 `Cloud Model` 可依需求調整。
+
 補充：
 
 - `Google API Key` 欄位右側提供 `Show/Hide` 按鈕，方便檢查輸入是否正確。
+- Google 的 `Cloud Endpoint` 與 `Cloud Model` 提供下拉預設值，並可按 `Custom` 輸入自訂值。
 - 如需觀察實際請求與回應，可開啟 `Show LLM Debug Alert (Prompt/Response)`。
 - 如需快速確認是否有觸發，可開啟 `Show LLM Activity Indicator`。
 

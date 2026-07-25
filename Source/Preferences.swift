@@ -81,10 +81,14 @@ private let kLLMInputtingPauseMsKey = "LLMInputtingPauseMs"
 private let kLLMShowActivityIndicatorKey = "LLMShowActivityIndicator"
 private let kLLMShowDebugAlertKey = "LLMShowDebugAlert"
 private let kLLMInputtingTriggerModeKey = "LLMInputtingTriggerMode"
+private let kLLMCloudProviderKey = "LLMCloudProvider"
 private let kLLMGoogleModelNameKey = "LLMGoogleModelName"
 private let kLLMGoogleEndpointKey = "LLMGoogleEndpoint"
 private let kLLMGoogleAPIKeyKey = "LLMGoogleAPIKey"
 private let kLLMGoogleThinkingLevelKey = "LLMGoogleThinkingLevel"
+private let kLLMOpenAIModelNameKey = "LLMOpenAIModelName"
+private let kLLMOpenAIEndpointKey = "LLMOpenAIEndpoint"
+private let kLLMOpenAIAPIKeyKey = "LLMOpenAIAPIKey"
 
 private let kDefaultLLMCandidateRankingTimeoutMs = 12
 private let kMinLLMCandidateRankingTimeoutMs = 1
@@ -92,8 +96,10 @@ private let kMaxLLMCandidateRankingTimeoutMs = 5000
 private let kDefaultLLMInputtingPauseMs = 600
 private let kMinLLMInputtingPauseMs = 100
 private let kMaxLLMInputtingPauseMs = 3000
-private let kDefaultLLMGoogleModelName = "gemini-2.5-flash-lite"
+private let kDefaultLLMGoogleModelName = "gemini-3.6-flash"
 private let kDefaultLLMGoogleEndpoint = "https://generativelanguage.googleapis.com/v1beta"
+private let kDefaultLLMOpenAIModelName = "gpt-4.1-mini"
+private let kDefaultLLMOpenAIEndpoint = "https://api.openai.com/v1/chat/completions"
 
 // MARK: Property wrappers
 
@@ -266,6 +272,20 @@ struct BoundedIntUserDefault {
     }
 }
 
+@objc enum LLMCloudProvider: Int {
+    case google = 0
+    case openAI = 1
+
+    var name: String {
+        return switch self {
+        case .google:
+            "Google"
+        case .openAI:
+            "OpenAI"
+        }
+    }
+}
+
 @objc enum LLMGoogleThinkingLevel: Int {
     case off = 0
     case low = 1
@@ -295,6 +315,19 @@ struct BoundedIntUserDefault {
             1024
         case .high:
             2048
+        }
+    }
+
+    var thinkingLevel: String {
+        return switch self {
+        case .off:
+            "minimal"
+        case .low:
+            "low"
+        case .medium:
+            "medium"
+        case .high:
+            "high"
         }
     }
 }
@@ -333,10 +366,14 @@ class Preferences: NSObject {
             kLLMShowActivityIndicatorKey,
             kLLMShowDebugAlertKey,
             kLLMInputtingTriggerModeKey,
+            kLLMCloudProviderKey,
             kLLMGoogleModelNameKey,
             kLLMGoogleEndpointKey,
             kLLMGoogleAPIKeyKey,
             kLLMGoogleThinkingLevelKey,
+            kLLMOpenAIModelNameKey,
+            kLLMOpenAIEndpointKey,
+            kLLMOpenAIAPIKeyKey,
         ]
     }
 
@@ -374,10 +411,14 @@ class Preferences: NSObject {
         Preferences.llmShowActivityIndicator = Preferences.llmShowActivityIndicator
         Preferences.llmShowDebugAlert = Preferences.llmShowDebugAlert
         Preferences.llmInputtingTriggerMode = Preferences.llmInputtingTriggerMode
+        Preferences.llmCloudProvider = Preferences.llmCloudProvider
         Preferences.llmGoogleModelName = Preferences.llmGoogleModelName
         Preferences.llmGoogleEndpoint = Preferences.llmGoogleEndpoint
         Preferences.llmGoogleAPIKey = Preferences.llmGoogleAPIKey
         Preferences.llmGoogleThinkingLevel = Preferences.llmGoogleThinkingLevel
+        Preferences.llmOpenAIModelName = Preferences.llmOpenAIModelName
+        Preferences.llmOpenAIEndpoint = Preferences.llmOpenAIEndpoint
+        Preferences.llmOpenAIAPIKey = Preferences.llmOpenAIAPIKey
     }
 
     @EnumUserDefault(key: kKeyboardLayoutPreferenceKey, defaultValue: KeyboardLayout.standard)
@@ -717,6 +758,9 @@ extension Preferences {
     @EnumUserDefault(key: kLLMInputtingTriggerModeKey, defaultValue: .continuous)
     @objc static var llmInputtingTriggerMode: LLMInputtingTriggerMode
 
+    @EnumUserDefault(key: kLLMCloudProviderKey, defaultValue: .google)
+    @objc static var llmCloudProvider: LLMCloudProvider
+
     @UserDefault(key: kLLMGoogleModelNameKey, defaultValue: kDefaultLLMGoogleModelName)
     @objc static var llmGoogleModelName: String
 
@@ -728,6 +772,27 @@ extension Preferences {
 
     @EnumUserDefault(key: kLLMGoogleThinkingLevelKey, defaultValue: .off)
     @objc static var llmGoogleThinkingLevel: LLMGoogleThinkingLevel
+
+    @UserDefault(key: kLLMOpenAIModelNameKey, defaultValue: kDefaultLLMOpenAIModelName)
+    @objc static var llmOpenAIModelName: String
+
+    @UserDefault(key: kLLMOpenAIEndpointKey, defaultValue: kDefaultLLMOpenAIEndpoint)
+    @objc static var llmOpenAIEndpoint: String
+
+    @UserDefault(key: kLLMOpenAIAPIKeyKey, defaultValue: "")
+    @objc static var llmOpenAIAPIKey: String
+
+    static let googlePresetModelNames: [String] = [
+        "gemini-3.6-flash",
+        "gemini-flash-latest",
+        "gemini-3-flash-preview",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+    ]
+
+    static let googlePresetEndpoints: [String] = [
+        "https://generativelanguage.googleapis.com/v1beta"
+    ]
 }
 
 extension Preferences {
@@ -804,6 +869,9 @@ extension Preferences {
         lines.append(
             "  - LLM Inputting Trigger Mode: \(Preferences.llmInputtingTriggerMode.name)"
         )
+        lines.append(
+            "  - LLM Cloud Provider: \(Preferences.llmCloudProvider.name)"
+        )
         lines.append("  - LLM Google Model: \(Preferences.llmGoogleModelName)")
         lines.append("  - LLM Google Endpoint: \(Preferences.llmGoogleEndpoint)")
         lines.append(
@@ -811,6 +879,11 @@ extension Preferences {
         )
         lines.append(
             "  - LLM Google Thinking Level: \(Preferences.llmGoogleThinkingLevel.name) (budget: \(Preferences.llmGoogleThinkingLevel.thinkingBudget))"
+        )
+        lines.append("  - LLM OpenAI Model: \(Preferences.llmOpenAIModelName)")
+        lines.append("  - LLM OpenAI Endpoint: \(Preferences.llmOpenAIEndpoint)")
+        lines.append(
+            "  - LLM OpenAI API Key: \(Preferences.llmOpenAIAPIKey.isEmpty ? "<empty>" : "<redacted>")"
         )
         return lines.joined(separator: "\n")
     }

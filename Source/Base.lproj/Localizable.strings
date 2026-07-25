@@ -164,6 +164,13 @@
 "Apple On-Device" = "Apple On-Device";
 "Open Source" = "Open Source";
 "Cloud (Google)" = "Cloud (Google)";
+"Cloud Provider" = "Cloud Provider";
+"Google" = "Google";
+"OpenAI" = "OpenAI";
+"OpenAI API Key" = "OpenAI API Key";
+"Custom" = "Custom";
+"Custom: %@" = "Custom: %@";
+"Enter custom value" = "Enter custom value";
 
 "LLM Timeout (ms)" = "LLM Timeout (ms)";
 "LLM Pause Before Trigger (ms)" = "LLM Pause Before Trigger (ms)";
