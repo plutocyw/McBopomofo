@@ -77,6 +77,10 @@ extern InputMode InputModePlainBopomofo;
     NS_SWIFT_NAME(buildSegmentCandidateContexts());
 - (BOOL)applySegmentCandidateOverridesWithSelections:(NSArray<NSNumber *> *)selections
     NS_SWIFT_NAME(applySegmentCandidateOverrides(selections:));
+- (nullable NSDictionary<NSString *, id> *)buildLLMEditActionCandidateContextWithLimit:
+    (NSUInteger)limit NS_SWIFT_NAME(buildLLMEditActionCandidateContext(limit:));
+- (BOOL)applyComposedTextCandidatePath:(NSString *)text
+    NS_SWIFT_NAME(applyComposedTextCandidatePath(_:));
 
 - (nullable InputState *)buildAssociatedPhrasePlainStateWithReading:(NSString *)reading
                                                               value:(NSString *)value

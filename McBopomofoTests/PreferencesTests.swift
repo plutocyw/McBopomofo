@@ -207,6 +207,13 @@ final class PreferencesTests {
         #expect(Preferences.llmCandidateRankingEnabled == true)
     }
 
+    @Test("Test LLM edit action reranking feature flag")
+    func testLLMEditActionRerankingEnabled() {
+        #expect(Preferences.llmEditActionRerankingEnabled == false)
+        Preferences.llmEditActionRerankingEnabled = true
+        #expect(Preferences.llmEditActionRerankingEnabled == true)
+    }
+
     @Test("Test LLM candidate ranking timeout bounds")
     func testLLMCandidateRankingTimeoutMs() {
         #expect(Preferences.llmCandidateRankingTimeoutMs == 12)

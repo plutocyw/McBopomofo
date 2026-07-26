@@ -318,6 +318,29 @@ struct CandidateRankingTests {
         #expect(json?["maxOutputTokens"] as? Int == 1024)
     }
 
+    @Test("Gemini edit action request uses bounded JSON array schema")
+    func geminiEditActionRequestUsesJSONSchema() throws {
+        let config = GoogleGenerateContentGenerationConfig(
+            modelName: "gemini-3.6-flash",
+            thinkingLevel: .off,
+            actionCount: 20
+        )
+        let data = try JSONEncoder().encode(config)
+        let object = try JSONSerialization.jsonObject(with: data)
+        let json = object as? [String: Any]
+        let schema = json?["responseJsonSchema"] as? [String: Any]
+        let items = schema?["items"] as? [String: Any]
+
+        #expect(json?["responseMimeType"] as? String == "application/json")
+        #expect(json?["maxOutputTokens"] as? Int == 64)
+        #expect(schema?["type"] as? String == "array")
+        #expect(schema?["minItems"] as? Int == 0)
+        #expect(schema?["maxItems"] as? Int == 20)
+        #expect(items?["type"] as? String == "integer")
+        #expect(items?["minimum"] as? Int == 0)
+        #expect(items?["maximum"] as? Int == 19)
+    }
+
     @Test("Gemini latest request uses thinking level")
     func geminiLatestRequestUsesThinkingLevel() throws {
         let config = GoogleGenerateContentGenerationConfig(

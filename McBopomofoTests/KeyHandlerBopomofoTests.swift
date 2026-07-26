@@ -2754,3 +2754,135 @@ extension KeyHandlerBopomofoTests {
         checkChangingReadingUsingToneKey(input: "vul3a947", expected: "小麥˙")
     }
 }
+
+final class LLMEditActionGeneratorTests: XCTestCase {
+    func testBuildsAdjacentCombinedAction() {
+        let actions = LLMEditActionGenerator.generate(
+            input: "甲乙是",
+            hypotheses: [
+                .init(text: "甲乙是", score: 0),
+                .init(text: "甲丁是", score: -0.1),
+                .init(text: "丙乙是", score: -0.2),
+            ],
+            localCandidates: [])
+
+        XCTAssertTrue(
+            actions.contains {
+                $0.start == 0 && $0.end == 2
+                    && $0.replacement == "丙丁" && $0.components == 2
+            })
+    }
+
+    func testAppliesDistantActionsDeterministically() {
+        let actions = [
+            LLMEditAction(
+                start: 0, end: 1, replacement: "戊", sourceRank: 1,
+                sourceScore: 0, components: 1, localScoreDelta: nil),
+            LLMEditAction(
+                start: 3, end: 4, replacement: "己", sourceRank: 2,
+                sourceScore: 0, components: 1, localScoreDelta: nil),
+        ]
+
+        XCTAssertEqual(
+            LLMEditActionGenerator.applying(
+                actionIDs: [1, 0],
+                to: "甲乙丙丁",
+                actions: actions),
+            "戊乙丙己")
+    }
+
+    func testRejectsOverlappingActions() {
+        let actions = [
+            LLMEditAction(
+                start: 0, end: 2, replacement: "丙丁", sourceRank: 1,
+                sourceScore: 0, components: 1, localScoreDelta: nil),
+            LLMEditAction(
+                start: 1, end: 2, replacement: "戊", sourceRank: 2,
+                sourceScore: 0, components: 1, localScoreDelta: nil),
+        ]
+
+        XCTAssertNil(
+            LLMEditActionGenerator.applying(
+                actionIDs: [0, 1],
+                to: "甲乙",
+                actions: actions))
+    }
+
+    func testDeduplicatesEquivalentProposals() {
+        let actions = LLMEditActionGenerator.generate(
+            input: "甲乙",
+            hypotheses: [
+                .init(text: "甲乙", score: 0),
+                .init(text: "甲丁", score: -0.1),
+                .init(text: "甲丁", score: -0.2),
+            ],
+            localCandidates: [])
+        let matching = actions.filter {
+            $0.start == 1 && $0.end == 2 && $0.replacement == "丁"
+        }
+
+        XCTAssertEqual(matching.count, 1)
+    }
+}
+
+extension KeyHandlerBopomofoTests {
+    func testLLMEditActionCandidatePathCanRewriteComposingBuffer() {
+        let savedKeyboardLayout = Preferences.keyboardLayout
+        let savedAssociatedPhrasesEnabled = Preferences.associatedPhrasesEnabled
+        Preferences.keyboardLayout = .standard
+        Preferences.associatedPhrasesEnabled = false
+        handler.syncWithPreferences()
+        defer {
+            Preferences.keyboardLayout = savedKeyboardLayout
+            Preferences.associatedPhrasesEnabled = savedAssociatedPhrasesEnabled
+            handler.syncWithPreferences()
+        }
+
+        var state: InputState = InputState.Empty()
+        var rejectedKeys: [String] = []
+        for key in Array("w8 e; e; ap6").map(String.init) {
+            let input = KeyHandlerInput(
+                inputText: key,
+                keyCode: 0,
+                charCode: charCode(key),
+                flags: [],
+                isVerticalMode: false)
+            handler.handle(input: input, state: state) { newState in
+                state = newState
+            } errorCallback: {
+                rejectedKeys.append(key)
+            }
+        }
+        state = handler.buildInputtingState()
+        for key in Array("d9 5k7").map(String.init) {
+            let input = KeyHandlerInput(
+                inputText: key,
+                keyCode: 0,
+                charCode: charCode(key),
+                flags: [],
+                isVerticalMode: false)
+            handler.handle(input: input, state: state) { newState in
+                state = newState
+            } errorCallback: {
+                rejectedKeys.append(key)
+            }
+        }
+
+        let inputting = state as? InputState.Inputting
+        XCTAssertTrue(rejectedKeys.isEmpty, "\(rejectedKeys)")
+        XCTAssertEqual(
+            inputting?.composingBuffer,
+            "他剛剛們開著",
+            "state=\(state), built=\(handler.buildInputtingState())")
+        let context = handler.buildLLMEditActionCandidateContext(limit: 20)
+        let hypotheses = context?["hypotheses"] as? [[String: Any]]
+        XCTAssertTrue(
+            hypotheses?.contains {
+                $0["text"] as? String == "他剛剛門開著"
+            } == true)
+
+        XCTAssertTrue(handler.applyComposedTextCandidatePath("他剛剛門開著"))
+        let rewrittenState = handler.buildInputtingState() as? InputState.Inputting
+        XCTAssertEqual(rewrittenState?.composingBuffer, "他剛剛門開著")
+    }
+}

@@ -31,6 +31,7 @@
 #import "reading_grid.h"
 
 #import <algorithm>
+#import <functional>
 #import <optional>
 #import <sstream>
 #import <string>
@@ -44,6 +45,180 @@
 @import ChineseNumbers;
 @import RomanNumbers;
 @import BopomofoBraille;
+
+namespace {
+
+using Formosa::Gramambular2::ReadingGrid;
+
+struct LLMRerankHypothesis {
+    std::string text;
+    double score = 0;
+};
+
+struct CandidatePathStep {
+    size_t start = 0;
+    std::string reading;
+    std::string value;
+};
+
+std::vector<LLMRerankHypothesis> TopKHypotheses(const ReadingGrid& grid, size_t limit)
+{
+    const size_t readingCount = grid.readings().size();
+    std::vector<std::vector<LLMRerankHypothesis>> best(readingCount + 1);
+    best[readingCount].push_back(LLMRerankHypothesis { "", 0 });
+
+    for (size_t offset = readingCount; offset > 0; --offset) {
+        size_t start = offset - 1;
+        std::unordered_map<std::string, double> unique;
+        const ReadingGrid::Span& span = grid.spans()[start];
+        for (size_t spanLength = 1; spanLength <= span.maxLength(); ++spanLength) {
+            const ReadingGrid::NodePtr& node = span.nodeOf(spanLength);
+            if (node == nullptr || start + spanLength > readingCount) {
+                continue;
+            }
+            const auto& suffixes = best[start + spanLength];
+            for (const auto& unigram : node->unigrams()) {
+                for (const auto& suffix : suffixes) {
+                    std::string text = unigram.value() + suffix.text;
+                    double score = unigram.score() + suffix.score;
+                    auto [iterator, inserted] = unique.emplace(text, score);
+                    if (!inserted && score > iterator->second) {
+                        iterator->second = score;
+                    }
+                }
+            }
+        }
+
+        auto& hypotheses = best[start];
+        hypotheses.reserve(unique.size());
+        for (auto& [text, score] : unique) {
+            hypotheses.push_back(LLMRerankHypothesis { std::move(text), score });
+        }
+        std::sort(hypotheses.begin(), hypotheses.end(),
+            [](const auto& left, const auto& right) {
+                if (left.score != right.score) {
+                    return left.score > right.score;
+                }
+                return left.text < right.text;
+            });
+        if (hypotheses.size() > limit) {
+            hypotheses.resize(limit);
+        }
+    }
+
+    return best[0];
+}
+
+std::string ComposedText(const ReadingGrid::WalkResult& walk)
+{
+    std::string text;
+    for (const auto& node : walk.nodes) {
+        if (node != nullptr) {
+            text += node->value();
+        }
+    }
+    return text;
+}
+
+bool FindCandidatePath(
+    const ReadingGrid& grid,
+    const std::vector<std::string>& targetCodePoints,
+    size_t readingPosition,
+    size_t textPosition,
+    std::vector<int8_t>& memo,
+    std::vector<CandidatePathStep>& path)
+{
+    const size_t textWidth = targetCodePoints.size() + 1;
+    const size_t memoIndex = readingPosition * textWidth + textPosition;
+    if (readingPosition == grid.readings().size()
+        && textPosition == targetCodePoints.size()) {
+        return true;
+    }
+    if (readingPosition >= grid.readings().size()
+        || textPosition >= targetCodePoints.size()) {
+        return false;
+    }
+    if (memo[memoIndex] == 0) {
+        return false;
+    }
+
+    const ReadingGrid::Span& span = grid.spans()[readingPosition];
+    for (size_t spanLength = 1; spanLength <= span.maxLength(); ++spanLength) {
+        const ReadingGrid::NodePtr& node = span.nodeOf(spanLength);
+        if (node == nullptr
+            || readingPosition + spanLength > grid.readings().size()) {
+            continue;
+        }
+        for (const auto& unigram : node->unigrams()) {
+            std::vector<std::string> valueCodePoints =
+                McBopomofo::Split(unigram.value());
+            if (valueCodePoints.empty()
+                || textPosition + valueCodePoints.size()
+                    > targetCodePoints.size()) {
+                continue;
+            }
+            if (!std::equal(
+                    valueCodePoints.begin(),
+                    valueCodePoints.end(),
+                    targetCodePoints.begin()
+                        + static_cast<ptrdiff_t>(textPosition))) {
+                continue;
+            }
+            path.push_back(CandidatePathStep {
+                readingPosition,
+                node->reading(),
+                unigram.value(),
+            });
+            if (FindCandidatePath(
+                    grid,
+                    targetCodePoints,
+                    readingPosition + spanLength,
+                    textPosition + valueCodePoints.size(),
+                    memo,
+                    path)) {
+                return true;
+            }
+            path.pop_back();
+        }
+    }
+
+    memo[memoIndex] = 0;
+    return false;
+}
+
+std::vector<CandidatePathStep> CurrentCandidatePath(
+    const ReadingGrid::WalkResult& walk)
+{
+    std::vector<CandidatePathStep> path;
+    size_t start = 0;
+    for (const auto& node : walk.nodes) {
+        if (node == nullptr) {
+            continue;
+        }
+        path.push_back(CandidatePathStep {
+            start,
+            node->reading(),
+            node->value(),
+        });
+        start += node->spanningLength();
+    }
+    return path;
+}
+
+bool ApplyCandidatePath(
+    ReadingGrid& grid,
+    const std::vector<CandidatePathStep>& path)
+{
+    for (const auto& step : path) {
+        ReadingGrid::Candidate candidate(step.reading, step.value);
+        if (!grid.overrideCandidate(step.start, candidate)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+}  // namespace
 
 InputMode InputModeBopomofo = @"org.openvanilla.inputmethod.McBopomofo.Bopomofo";
 InputMode InputModePlainBopomofo = @"org.openvanilla.inputmethod.McBopomofo.PlainBopomofo";
@@ -2283,6 +2458,105 @@ InputMode InputModePlainBopomofo = @"org.openvanilla.inputmethod.McBopomofo.Plai
     }
 
     return contexts;
+}
+
+- (nullable NSDictionary<NSString *, id> *)buildLLMEditActionCandidateContextWithLimit:
+    (NSUInteger)limit
+{
+    if (_grid->length() == 0 || limit == 0) {
+        return nil;
+    }
+
+    [self _walk];
+    std::string input = ComposedText(_latestWalk);
+    if (input.empty()) {
+        return nil;
+    }
+
+    NSMutableArray<NSDictionary<NSString *, id> *> *hypotheses =
+        [[NSMutableArray alloc] init];
+    for (const auto& hypothesis : TopKHypotheses(*_grid, limit)) {
+        [hypotheses addObject:@{
+            @"text": @(hypothesis.text.c_str()),
+            @"score": @(hypothesis.score),
+        }];
+    }
+
+    NSMutableArray<NSDictionary<NSString *, id> *> *localCandidates =
+        [[NSMutableArray alloc] init];
+    for (size_t start = 0; start < _grid->spans().size(); ++start) {
+        const ReadingGrid::Span& span = _grid->spans()[start];
+        for (size_t length = 1; length <= span.maxLength(); ++length) {
+            const ReadingGrid::NodePtr& node = span.nodeOf(length);
+            if (node == nullptr) {
+                continue;
+            }
+            size_t candidateRank = 0;
+            for (const auto& unigram : node->unigrams()) {
+                ++candidateRank;
+                if (candidateRank > 5) {
+                    break;
+                }
+                [localCandidates addObject:@{
+                    @"start": @(start),
+                    @"length": @(length),
+                    @"value": @(unigram.value().c_str()),
+                    @"score": @(unigram.score()),
+                    @"candidateRank": @(candidateRank),
+                }];
+            }
+        }
+    }
+
+    return @{
+        @"input": @(input.c_str()),
+        @"hypotheses": hypotheses,
+        @"localCandidates": localCandidates,
+    };
+}
+
+- (BOOL)applyComposedTextCandidatePath:(NSString *)text
+{
+    if (_grid->length() == 0 || text.length == 0) {
+        return NO;
+    }
+
+    [self _walk];
+    const size_t originalCursorIndex = _grid->cursor();
+    const std::vector<CandidatePathStep> originalPath =
+        CurrentCandidatePath(_latestWalk);
+    const std::string target = text.UTF8String;
+    const std::vector<std::string> targetCodePoints =
+        McBopomofo::Split(target);
+    std::vector<int8_t> memo(
+        (_grid->readings().size() + 1) * (targetCodePoints.size() + 1),
+        -1);
+    std::vector<CandidatePathStep> targetPath;
+    if (!FindCandidatePath(
+            *_grid,
+            targetCodePoints,
+            0,
+            0,
+            memo,
+            targetPath)) {
+        return NO;
+    }
+
+    if (!ApplyCandidatePath(*_grid, targetPath)) {
+        ApplyCandidatePath(*_grid, originalPath);
+        [self _walk];
+        _grid->setCursor(originalCursorIndex);
+        return NO;
+    }
+    [self _walk];
+    if (ComposedText(_latestWalk) != target) {
+        ApplyCandidatePath(*_grid, originalPath);
+        [self _walk];
+        _grid->setCursor(originalCursorIndex);
+        return NO;
+    }
+    _grid->setCursor(originalCursorIndex);
+    return YES;
 }
 
 - (BOOL)applySegmentCandidateOverridesWithSelections:(NSArray<NSNumber *> *)selections

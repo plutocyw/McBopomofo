@@ -76,6 +76,7 @@ let kBeepUponInputErrorKey = "BeepUponInputError"
 private let kEnableUserPhrasesInPlainBopomofo = "EnableUserPhrasesInPlainBopomofo"
 private let kAllowChangingPriorTone = "AllowChangingPriorTone"
 private let kLLMCandidateRankingEnabledKey = "LLMCandidateRankingEnabled"
+private let kLLMEditActionRerankingEnabledKey = "LLMEditActionRerankingEnabled"
 private let kLLMCandidateRankingTimeoutMsKey = "LLMCandidateRankingTimeoutMs"
 private let kLLMInputtingPauseMsKey = "LLMInputtingPauseMs"
 private let kLLMShowActivityIndicatorKey = "LLMShowActivityIndicator"
@@ -361,6 +362,7 @@ class Preferences: NSObject {
             kUseCustomUserPhraseLocation,
             kCustomUserPhraseLocation,
             kLLMCandidateRankingEnabledKey,
+            kLLMEditActionRerankingEnabledKey,
             kLLMCandidateRankingTimeoutMsKey,
             kLLMInputtingPauseMsKey,
             kLLMShowActivityIndicatorKey,
@@ -406,6 +408,8 @@ class Preferences: NSObject {
         Preferences.allowMovingCursorWhenChoosingCandidates =
             Preferences.allowMovingCursorWhenChoosingCandidates
         Preferences.llmCandidateRankingEnabled = Preferences.llmCandidateRankingEnabled
+        Preferences.llmEditActionRerankingEnabled =
+            Preferences.llmEditActionRerankingEnabled
         Preferences.llmCandidateRankingTimeoutMs = Preferences.llmCandidateRankingTimeoutMs
         Preferences.llmInputtingPauseMs = Preferences.llmInputtingPauseMs
         Preferences.llmShowActivityIndicator = Preferences.llmShowActivityIndicator
@@ -739,6 +743,9 @@ extension Preferences {
     @UserDefault(key: kLLMCandidateRankingEnabledKey, defaultValue: false)
     @objc static var llmCandidateRankingEnabled: Bool
 
+    @UserDefault(key: kLLMEditActionRerankingEnabledKey, defaultValue: false)
+    @objc static var llmEditActionRerankingEnabled: Bool
+
     @BoundedIntUserDefault(
         key: kLLMCandidateRankingTimeoutMsKey, defaultValue: kDefaultLLMCandidateRankingTimeoutMs,
         minValue: kMinLLMCandidateRankingTimeoutMs, maxValue: kMaxLLMCandidateRankingTimeoutMs)
@@ -856,6 +863,9 @@ extension Preferences {
         )
         lines.append(
             "  - LLM Candidate Ranking: \(Preferences.llmCandidateRankingEnabled ? "Enabled" : "Disabled")"
+        )
+        lines.append(
+            "  - LLM Edit Action Reranking: \(Preferences.llmEditActionRerankingEnabled ? "Enabled" : "Disabled")"
         )
         lines.append(
             "  - LLM Candidate Ranking Timeout: \(Preferences.llmCandidateRankingTimeoutMs) ms")
