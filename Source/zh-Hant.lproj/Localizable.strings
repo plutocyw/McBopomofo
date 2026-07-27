@@ -156,6 +156,7 @@
 "Illegal NULL character was found." = "這一行包含了不合規則的 NULL 字元 (0x00)。";
 
 "Use LLM Candidate Ranking" = "使用雲端 LLM 進行輸入緩衝校正";
+"Use Edit-Action Reranking (Experimental)" = "使用編輯動作重新排序（實驗性）";
 
 "Auto-preselect top ranked candidate" = "自動預選並提交第一名候選詞";
 

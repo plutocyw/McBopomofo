@@ -156,6 +156,7 @@
 "Illegal NULL character was found." = "Illegal NULL character was found.";
 
 "Use LLM Candidate Ranking" = "Use Cloud LLM Buffer Correction";
+"Use Edit-Action Reranking (Experimental)" = "Use Edit-Action Reranking (Experimental)";
 
 "Auto-preselect top ranked candidate" = "Auto-preselect top ranked candidate";
 

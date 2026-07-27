@@ -39,7 +39,7 @@ private let kWindowTitleHeight: CGFloat = 78
 @objc(PreferencesWindowController) class PreferencesWindowController: NSWindowController {
     private let kLLMControlBottomInset: CGFloat = 12
     private let kLLMControlSpacing: CGFloat = 8
-    private let kLLMControlExtraViewHeight: CGFloat = 372
+    private let kLLMControlExtraViewHeight: CGFloat = 400
 
     @IBOutlet weak var fontSizePopUpButton: NSPopUpButton!
     @IBOutlet weak var basisKeyboardLayoutButton: NSPopUpButton!
@@ -56,6 +56,7 @@ private let kWindowTitleHeight: CGFloat = 78
 
     @IBOutlet weak var addPhraseHookPathField: NSTextField!
     private var llmRankingEnabledButton: NSButton?
+    private var llmEditActionRerankingButton: NSButton?
     private var llmActivityIndicatorButton: NSButton?
     private var llmDebugAlertButton: NSButton?
     private var llmTimeoutLabel: NSTextField?
@@ -346,6 +347,11 @@ private let kWindowTitleHeight: CGFloat = 78
         refreshLLMControlsState()
     }
 
+    @objc private func toggleLLMEditActionReranking(_ sender: NSButton) {
+        Preferences.llmEditActionRerankingEnabled = (sender.state == .on)
+        refreshLLMControlsState()
+    }
+
     @objc private func toggleLLMActivityIndicator(_ sender: NSButton) {
         Preferences.llmShowActivityIndicator = (sender.state == .on)
         refreshLLMControlsState()
@@ -514,6 +520,7 @@ private let kWindowTitleHeight: CGFloat = 78
 
     private func configureLLMControls() {
         if llmRankingEnabledButton != nil
+            || llmEditActionRerankingButton != nil
             || llmTimeoutLabel != nil || llmTimeoutTextField != nil || llmTimeoutStepper != nil
             || llmPauseLabel != nil || llmPauseTextField != nil || llmPauseStepper != nil
             || llmInputtingTriggerModeLabel != nil || llmInputtingTriggerModePopUpButton != nil
@@ -544,6 +551,14 @@ private let kWindowTitleHeight: CGFloat = 78
         rankingButton.title = NSLocalizedString("Use LLM Candidate Ranking", comment: "")
         rankingButton.target = self
         rankingButton.action = #selector(toggleLLMCandidateRankingEnabled(_:))
+
+        let editActionRerankingButton = NSButton(
+            checkboxWithTitle: "", target: nil, action: nil)
+        editActionRerankingButton.translatesAutoresizingMaskIntoConstraints = false
+        editActionRerankingButton.title = NSLocalizedString(
+            "Use Edit-Action Reranking (Experimental)", comment: "")
+        editActionRerankingButton.target = self
+        editActionRerankingButton.action = #selector(toggleLLMEditActionReranking(_:))
 
         let activityIndicatorButton = NSButton(checkboxWithTitle: "", target: nil, action: nil)
         activityIndicatorButton.translatesAutoresizingMaskIntoConstraints = false
@@ -734,6 +749,7 @@ private let kWindowTitleHeight: CGFloat = 78
         openAIAPIKeyRevealButton.action = #selector(toggleLLMOpenAIAPIKeyVisibility(_:))
 
         advancedSettingsView.addSubview(rankingButton)
+        advancedSettingsView.addSubview(editActionRerankingButton)
         advancedSettingsView.addSubview(activityIndicatorButton)
         advancedSettingsView.addSubview(debugAlertButton)
         advancedSettingsView.addSubview(timeoutLabel)
@@ -775,9 +791,16 @@ private let kWindowTitleHeight: CGFloat = 78
             rankingButton.trailingAnchor.constraint(
                 lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
 
+            editActionRerankingButton.leadingAnchor.constraint(
+                equalTo: rankingButton.leadingAnchor),
+            editActionRerankingButton.bottomAnchor.constraint(
+                equalTo: rankingButton.topAnchor, constant: -kLLMControlSpacing),
+            editActionRerankingButton.trailingAnchor.constraint(
+                lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
+
             debugAlertButton.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
             debugAlertButton.bottomAnchor.constraint(
-                equalTo: rankingButton.topAnchor, constant: -kLLMControlSpacing),
+                equalTo: editActionRerankingButton.topAnchor, constant: -kLLMControlSpacing),
             debugAlertButton.trailingAnchor.constraint(
                 lessThanOrEqualTo: advancedSettingsView.trailingAnchor, constant: -20),
 
@@ -938,6 +961,7 @@ private let kWindowTitleHeight: CGFloat = 78
         ])
 
         llmRankingEnabledButton = rankingButton
+        llmEditActionRerankingButton = editActionRerankingButton
         llmActivityIndicatorButton = activityIndicatorButton
         llmDebugAlertButton = debugAlertButton
         llmTimeoutLabel = timeoutLabel
@@ -976,6 +1000,9 @@ private let kWindowTitleHeight: CGFloat = 78
     private func refreshLLMControlsState() {
         let isEnabled = Preferences.llmCandidateRankingEnabled
         llmRankingEnabledButton?.state = isEnabled ? .on : .off
+        llmEditActionRerankingButton?.state =
+            Preferences.llmEditActionRerankingEnabled ? .on : .off
+        llmEditActionRerankingButton?.isEnabled = isEnabled
         llmActivityIndicatorButton?.state = Preferences.llmShowActivityIndicator ? .on : .off
         llmDebugAlertButton?.state = Preferences.llmShowDebugAlert ? .on : .off
         llmActivityIndicatorButton?.isEnabled = isEnabled
