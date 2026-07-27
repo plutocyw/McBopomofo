@@ -1,8 +1,26 @@
-# OpenVanilla McBopomofo 小麥注音輸入法
+# McBopomofo 小麥注音 LLM 實驗分支
+
+本專案是從 [OpenVanilla McBopomofo](https://github.com/openvanilla/McBopomofo) fork
+出來的獨立實驗分支，主要用來開發與測試以雲端 LLM 改善同音選字的功能。本專案並非
+OpenVanilla 官方發行版本，LLM 功能與此分支所產生的問題也不由 OpenVanilla 維護。
+
+## 下載測試版
+
+不想自行編譯的使用者，可以前往本專案的
+[GitHub Releases](https://github.com/plutocyw/McBopomofo/releases) 下載安裝程式。
+
+目前提供的
+[LLM Edit-action Reranking 測試版](https://github.com/plutocyw/McBopomofo/releases/tag/llm-edit-reranking-test-2026-07-26)
+有以下限制：
+
+- 僅支援 Apple Silicon（arm64）。
+- 這是 Debug、ad-hoc signed 且尚未經 Apple notarization 的測試版本。
+- 第一次執行時，可能需要右鍵選擇「打開」，或到「系統設定 → 隱私權與安全性」允許執行。
+- LLM 功能需要使用者自行設定 provider、model 與 API key；安裝檔不包含任何 API key。
 
 ## 系統需求
 
-小麥注音輸入法可以在 macOS 10.15 以上版本運作。如果您要自行編譯小麥注音輸入法，或參與開發，您需要：
+此分支目前以 macOS 11.0 以上版本為執行目標。如果您要自行編譯此分支，或參與開發，您需要：
 
 - macOS 14.7 以上版本
 - Xcode 15.3 以上版本
@@ -22,13 +40,15 @@
 
 目前行為重點：
 
-- LLM 主要用於「整段 compose buffer 校正」，不是候選清單排序。
+- 預設模式使用 LLM 校正整段 compose buffer。
+- 實驗性的 edit-action reranking 會讓 LLM 從輸入法產生的候選句中選擇，再將結果套回輸入緩衝；此功能預設關閉。
+- 目前不會使用 LLM 重新排列使用者看到的候選字清單。
 - 輸入進行中不會每鍵觸發；會在使用者停頓一段時間後才呼叫。
 - 使用者進入方向鍵選字等手動修正流程時，會暫停自動校正；回到句尾繼續輸入後再恢復。
 
 ## 如何使用 LLM 功能
 
-1. Build 並安裝輸入法（建議用 `McBopomofoInstaller` target）。
+1. 從 [GitHub Releases](https://github.com/plutocyw/McBopomofo/releases) 下載測試版，或自行 build 並安裝輸入法（建議使用 `McBopomofoInstaller` target）。
 2. 在輸入法偏好設定 `Advanced` 頁籤開啟：
    - `Use Cloud LLM Buffer Correction`
 3. 取得 Google API Key：
@@ -57,15 +77,21 @@
 - Google 的 `Cloud Endpoint` 與 `Cloud Model` 提供下拉預設值，並可按 `Custom` 輸入自訂值。
 - 如需觀察實際請求與回應，可開啟 `Show LLM Debug Alert (Prompt/Response)`。
 - 如需快速確認是否有觸發，可開啟 `Show LLM Activity Indicator`。
+- 如需測試候選句重新排序，可開啟 `Use Edit-Action Reranking (Experimental)`；此選項仍屬實驗功能，預設關閉。
 
-## 社群公約
+## 問題回報與社群公約
 
-歡迎小麥注音用戶回報問題與指教，也歡迎大家參與小麥注音開發。
+歡迎使用者回報此分支的問題與提供建議。請將問題回報到
+[plutocyw/McBopomofo Issues](https://github.com/plutocyw/McBopomofo/issues)。
 
-首先，請參考我們在「[常見問題](https://github.com/openvanilla/McBopomofo/wiki/常見問題)」中所提「[我可以怎麼參與小麥注音？](https://github.com/openvanilla/McBopomofo/wiki/常見問題#我可以怎麼參與小麥注音)」一節的說明。
+請不要將 LLM 功能、此分支的安裝程式，或其他僅在此 fork 發生的問題回報到
+`openvanilla/McBopomofo`。只有在問題也能於未修改的上游官方版本重現時，才適合依照
+上游專案的規範向 OpenVanilla 回報。
 
-我們採用了 GitHub 的[通用社群公約](https://github.com/openvanilla/McBopomofo/blob/master/CODE_OF_CONDUCT.md)。公約的中文版請參考[這裡的翻譯](https://www.contributor-covenant.org/zh-tw/version/1/4/code-of-conduct/)。
+參與此 fork 的討論與開發時，請遵守
+[Contributor Covenant](https://www.contributor-covenant.org/zh-tw/version/1/4/code-of-conduct/)。
 
 ## 軟體授權
 
-本專案採用 MIT License 釋出，使用者可自由使用、散播本軟體，惟散播時必須完整保留版權聲明及軟體授權（[詳全文](https://github.com/openvanilla/McBopomofo/blob/master/LICENSE.txt)）。
+本專案沿用上游的 MIT License，使用者可自由使用及散播本軟體，惟散播時必須完整保留
+版權聲明及軟體授權（[詳全文](LICENSE.txt)）。
