@@ -102,6 +102,12 @@ private let kDefaultLLMGoogleEndpoint = "https://generativelanguage.googleapis.c
 private let kDefaultLLMOpenAIModelName = "gpt-4.1-mini"
 private let kDefaultLLMOpenAIEndpoint = "https://api.openai.com/v1/chat/completions"
 
+private let kBopomofoFontAnnotationSupportEnabled = "BopomofoFontAnnotationSupportEnabled"
+private let kShowBopomofoFontAnnotationSupportItemInInputMenu =
+    "ShowBopomofoFontAnnotationSupportItemInInputMenu"
+private let kBopomofoFontAnnotationSupportMenuItemEnabledByInstalledFontsCheck_V1 =
+    "BopomofoFontAnnotationSupportMenuItemEnabledByInstalledFontsCheck_V1"
+
 // MARK: Property wrappers
 
 @propertyWrapper
@@ -617,8 +623,9 @@ extension Preferences {
     case off = 0
     case bpmfReading = 1
     case htmlRuby = 2
-    case braille = 3
+    case brailleUnicode = 3
     case hanyuPinyin = 4
+    case brailleAscii = 5
 }
 
 extension ControlEnterOutput {
@@ -627,7 +634,8 @@ extension ControlEnterOutput {
         case .off: "Off"
         case .bpmfReading: "Bopomofo Reading"
         case .htmlRuby: "HTML Ruby Text"
-        case .braille: "Taiwan Braille"
+        case .brailleUnicode: "Taiwanese Braille (Unicode)"
+        case .brailleAscii: "Taiwanese Braille (ASCII)"
         case .hanyuPinyin: "Hanyu Pinyin"
         }
     }
@@ -800,6 +808,27 @@ extension Preferences {
     static let googlePresetEndpoints: [String] = [
         "https://generativelanguage.googleapis.com/v1beta"
     ]
+
+    // Whether to enable Bopomofo Font Annotation Support.
+    @UserDefault(key: kBopomofoFontAnnotationSupportEnabled, defaultValue: false)
+    @objc static var bopomofoFontAnnotationSupportEnabled: Bool
+
+    @objc static func toggleBopomofoFontAnnotationSupportEnabled() -> Bool {
+        bopomofoFontAnnotationSupportEnabled = !bopomofoFontAnnotationSupportEnabled
+        return bopomofoFontAnnotationSupportEnabled
+    }
+
+    // Whether to show the "Bopomofo Font Annotation Support" toggle in the input menu.
+    @UserDefault(key: kShowBopomofoFontAnnotationSupportItemInInputMenu, defaultValue: false)
+    @objc static var showBopomofoFontAnnotationSupportItemInInputMenu: Bool
+
+    // Whether at first launch, we have checked if there are any bpmfvs-supporting fonts installed,
+    // and enable showBopomofoFontAnnotationSupportItemInInputMenu as a result. No more check is
+    // performed once this flag is turned to true.
+    @UserDefault(
+        key: kBopomofoFontAnnotationSupportMenuItemEnabledByInstalledFontsCheck_V1,
+        defaultValue: false)
+    @objc static var bopomofoFontAnnotationSupportMenuItemEnabledByInstalledFontsCheck_V1: Bool
 }
 
 extension Preferences {

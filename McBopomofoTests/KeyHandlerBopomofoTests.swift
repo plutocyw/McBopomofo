@@ -32,12 +32,16 @@ func charCode(_ string: String) -> UInt16 {
 }
 
 class KeyHandlerBopomofoTests: XCTestCase {
+
     var handler = KeyHandler()
-    var chineseConversionEnabled: Bool  = false
+    var savedKeyboardLayout: KeyboardLayout = .standard
+    var chineseConversionEnabled: Bool = false
 
     override func setUpWithError() throws {
+        savedKeyboardLayout = Preferences.keyboardLayout
         chineseConversionEnabled = Preferences.chineseConversionEnabled
         Preferences.chineseConversionEnabled = false
+        Preferences.keyboardLayout = .standard
         LanguageModelManager.loadDataModels()
         handler = KeyHandler()
         handler.inputMode = .bopomofo
@@ -45,6 +49,7 @@ class KeyHandlerBopomofoTests: XCTestCase {
 
     override func tearDownWithError() throws {
         Preferences.chineseConversionEnabled = chineseConversionEnabled
+        Preferences.keyboardLayout = savedKeyboardLayout
     }
 
     func testSyncWithPreferences() {
@@ -233,6 +238,94 @@ class KeyHandlerBopomofoTests: XCTestCase {
         } errorCallback: {
         }
         XCTAssertFalse(result)
+    }
+
+    func testIcuTransformAppendsPrintableInputAndBuildsCandidates() {
+        let input = KeyHandlerInput(
+            inputText: "a", keyCode: 0, charCode: charCode("a"), flags: [], isVerticalMode: false)
+        var state: InputState = InputState.IcuTransform(string: "", candidates: [])
+        let result = handler.handle(input: input, state: state) { newState in
+            state = newState
+        } errorCallback: {
+            XCTFail("ICU transform input should not fail")
+        }
+
+        XCTAssertTrue(result)
+        XCTAssertTrue(state is InputState.IcuTransform, "\(state)")
+        guard let state = state as? InputState.IcuTransform else {
+            return
+        }
+        XCTAssertEqual(state.string, "a")
+        XCTAssertTrue(state.candidates.contains("あ"))
+        XCTAssertTrue(state.candidates.contains("ア"))
+        XCTAssertFalse(state.candidates.contains("a"))
+    }
+
+    func testIcuTransformDeletesLastCharacterAndRefreshesCandidates() {
+        let input = KeyHandlerInput(
+            inputText: "", keyCode: 0, charCode: 8, flags: [], isVerticalMode: false)
+        var state: InputState = InputState.IcuTransform(string: "ka", candidates: [])
+        let result = handler.handle(input: input, state: state) { newState in
+            state = newState
+        } errorCallback: {
+            XCTFail("ICU transform delete should not fail")
+        }
+
+        XCTAssertTrue(result)
+        XCTAssertTrue(state is InputState.IcuTransform, "\(state)")
+        guard let state = state as? InputState.IcuTransform else {
+            return
+        }
+        XCTAssertEqual(state.string, "k")
+        XCTAssertTrue(state.candidates.contains("κ"))
+        XCTAssertFalse(state.candidates.contains("か"))
+    }
+
+    func testIcuTransformDeleteEmptyStringReportsError() {
+        let input = KeyHandlerInput(
+            inputText: "", keyCode: 0, charCode: 8, flags: [], isVerticalMode: false)
+        var state: InputState = InputState.IcuTransform(string: "", candidates: [])
+        var didReportError = false
+        let result = handler.handle(input: input, state: state) { newState in
+            state = newState
+        } errorCallback: {
+            didReportError = true
+        }
+
+        XCTAssertTrue(result)
+        XCTAssertTrue(didReportError)
+        XCTAssertEqual((state as? InputState.IcuTransform)?.string, "")
+    }
+
+    func testIcuTransformEscapeCancelsInput() {
+        let input = KeyHandlerInput(
+            inputText: "", keyCode: 0, charCode: 27, flags: [], isVerticalMode: false)
+        var state: InputState = InputState.IcuTransform(string: "ka", candidates: [])
+        let result = handler.handle(input: input, state: state) { newState in
+            state = newState
+        } errorCallback: {
+            XCTFail("ICU transform escape should not fail")
+        }
+
+        XCTAssertTrue(result)
+        XCTAssertTrue(state is InputState.Empty, "\(state)")
+    }
+
+    func testIcuTransformIgnoresNonPrintableInput() {
+        let input = KeyHandlerInput(
+            inputText: "", keyCode: 0, charCode: 0, flags: [], isVerticalMode: false)
+        var state: InputState = InputState.IcuTransform(string: "ka", candidates: [])
+        var didChangeState = false
+        let result = handler.handle(input: input, state: state) { newState in
+            state = newState
+            didChangeState = true
+        } errorCallback: {
+            XCTFail("ICU transform non-printable input should not fail")
+        }
+
+        XCTAssertTrue(result)
+        XCTAssertFalse(didChangeState)
+        XCTAssertEqual((state as? InputState.IcuTransform)?.string, "ka")
     }
 
     func testIgnoreCapslock() {
@@ -1270,9 +1363,12 @@ class KeyHandlerBopomofoTests: XCTestCase {
 
     func testInputSpace() {
         let enabled = Preferences.chooseCandidateUsingSpace
+        let associatedPhrases = Preferences.associatedPhrasesEnabled
         Preferences.chooseCandidateUsingSpace = false
+        Preferences.associatedPhrasesEnabled = false
         defer {
             Preferences.chooseCandidateUsingSpace = enabled
+            Preferences.associatedPhrasesEnabled = associatedPhrases
         }
 
         var state: InputState = InputState.Empty()
@@ -1328,9 +1424,12 @@ class KeyHandlerBopomofoTests: XCTestCase {
 
     func testInputSpaceInBetween() {
         let enabled = Preferences.chooseCandidateUsingSpace
+        let asociatedPhrases = Preferences.associatedPhrasesEnabled
         Preferences.chooseCandidateUsingSpace = false
+        Preferences.associatedPhrasesEnabled = false
         defer {
             Preferences.chooseCandidateUsingSpace = enabled
+            Preferences.associatedPhrasesEnabled = asociatedPhrases
         }
         var state: InputState = InputState.Empty()
         let keys = Array("su3cl3").map {
@@ -1370,6 +1469,12 @@ class KeyHandlerBopomofoTests: XCTestCase {
     }
 
     func testHomeAndEnd() {
+        let asociatedPhrases = Preferences.associatedPhrasesEnabled
+        Preferences.associatedPhrasesEnabled = false
+        defer {
+            Preferences.associatedPhrasesEnabled = asociatedPhrases
+        }
+
         var state: InputState = InputState.Empty()
         let keys = Array("su3cl3").map {
             String($0)
@@ -1565,6 +1670,11 @@ class KeyHandlerBopomofoTests: XCTestCase {
     }
 
     func testMarkingLeft() {
+        let asociatedPhrases = Preferences.associatedPhrasesEnabled
+        Preferences.associatedPhrasesEnabled = false
+        defer {
+            Preferences.associatedPhrasesEnabled = asociatedPhrases
+        }
         var state: InputState = InputState.Empty()
         let keys = Array("su3cl3").map {
             String($0)
@@ -1634,6 +1744,11 @@ class KeyHandlerBopomofoTests: XCTestCase {
     }
 
     func testMarkingRight() {
+        let asociatedPhrases = Preferences.associatedPhrasesEnabled
+        Preferences.associatedPhrasesEnabled = false
+        defer {
+            Preferences.associatedPhrasesEnabled = asociatedPhrases
+        }
         var state: InputState = InputState.Empty()
         let keys = Array("su3cl3").map {
             String($0)
@@ -1720,6 +1835,11 @@ class KeyHandlerBopomofoTests: XCTestCase {
     }
 
     func testCancelMarking() {
+        let asociatedPhrases = Preferences.associatedPhrasesEnabled
+        Preferences.associatedPhrasesEnabled = false
+        defer {
+            Preferences.associatedPhrasesEnabled = asociatedPhrases
+        }
         var state: InputState = InputState.Empty()
         let keys = Array("su3cl3").map {
             String($0)
@@ -1906,6 +2026,11 @@ class KeyHandlerBopomofoTests: XCTestCase {
     }
 
     func testEscKeyWithCandidate() {
+        let asociatedPhrases = Preferences.associatedPhrasesEnabled
+        Preferences.associatedPhrasesEnabled = false
+        defer {
+            Preferences.associatedPhrasesEnabled = asociatedPhrases
+        }
         var state: InputState = InputState.Empty()
         let keys = Array("w8 ").map {
             String($0)
@@ -1941,6 +2066,11 @@ class KeyHandlerBopomofoTests: XCTestCase {
     }
 
     func testHomeKey() {
+        let asociatedPhrases = Preferences.associatedPhrasesEnabled
+        Preferences.associatedPhrasesEnabled = false
+        defer {
+            Preferences.associatedPhrasesEnabled = asociatedPhrases
+        }
         var state: InputState = InputState.Empty()
         let keys = Array("w8 ").map {
             String($0)
@@ -1969,6 +2099,11 @@ class KeyHandlerBopomofoTests: XCTestCase {
     }
 
     func testHomeAndEndKey() {
+        let asociatedPhrases = Preferences.associatedPhrasesEnabled
+        Preferences.associatedPhrasesEnabled = false
+        defer {
+            Preferences.associatedPhrasesEnabled = asociatedPhrases
+        }
         var state: InputState = InputState.Empty()
         let keys = Array("w8 ").map {
             String($0)
@@ -2080,6 +2215,11 @@ class KeyHandlerBopomofoTests: XCTestCase {
     }
 
     func testLookUpCandidateInDictionaryAndCancelWithTabKey() {
+        let asociatedPhrases = Preferences.associatedPhrasesEnabled
+        Preferences.associatedPhrasesEnabled = false
+        defer {
+            Preferences.associatedPhrasesEnabled = asociatedPhrases
+        }
         var state: InputState = InputState.Empty()
         let keys = Array("wu0 dj/ ").map {
             String($0)
@@ -2121,6 +2261,11 @@ class KeyHandlerBopomofoTests: XCTestCase {
     }
 
     func testLookUpCandidateInDictionaryAndCancelWithEscKey() {
+        let asociatedPhrases = Preferences.associatedPhrasesEnabled
+        Preferences.associatedPhrasesEnabled = false
+        defer {
+            Preferences.associatedPhrasesEnabled = asociatedPhrases
+        }
         var state: InputState = InputState.Empty()
         let keys = Array("wu0 dj/ ").map {
             String($0)
@@ -2356,7 +2501,7 @@ extension KeyHandlerBopomofoTests {
 
     func testCtrlEnter3() {
         let controlEnterOutput = Preferences.controlEnterOutput
-        Preferences.controlEnterOutput = .braille
+        Preferences.controlEnterOutput = .brailleUnicode
         var state: InputState = InputState.Empty()
         var commitState: InputState?
         let keys = Array("su3").map {
@@ -2393,7 +2538,6 @@ extension KeyHandlerBopomofoTests {
         Preferences.controlEnterOutput = controlEnterOutput
     }
 }
-
 
 extension KeyHandlerBopomofoTests {
     func testEnterAssocatedPhrases() {
@@ -2585,7 +2729,8 @@ extension KeyHandlerBopomofoTests {
                 inputText: s, keyCode: 0, charCode: charCode(s), flags: [], isVerticalMode: false)
             handler.handle(input: input, state: state) { newState in
                 state = newState
-            } errorCallback: {}
+            } errorCallback: {
+            }
         }
         XCTAssertTrue(state is InputState.Number, "\(state)")
         if let numberState = state as? InputState.Number {
@@ -2605,7 +2750,8 @@ extension KeyHandlerBopomofoTests {
             default: break
             }
             count += 1
-        } errorCallback: {}
+        } errorCallback: {
+        }
 
         XCTAssertEqual(count, 2)
         XCTAssertTrue(committing is InputState.Committing, "\(String(describing: committing))")
@@ -2621,7 +2767,8 @@ extension KeyHandlerBopomofoTests {
             inputText: " ", keyCode: 0, charCode: 8, flags: [], isVerticalMode: false)
         handler.handle(input: backspace, state: state) { newState in
             state = newState
-        } errorCallback: {}
+        } errorCallback: {
+        }
         XCTAssertTrue(state is InputState.Number, "\(state)")
         if let numberState = state as? InputState.Number {
             XCTAssertEqual(numberState.number, "12")
@@ -2631,8 +2778,10 @@ extension KeyHandlerBopomofoTests {
             inputText: " ", keyCode: 0, charCode: 27, flags: [], isVerticalMode: false)
         handler.handle(input: esc, state: state) { newState in
             state = newState
-        } errorCallback: {}
-        XCTAssertTrue(state is InputState.EmptyIgnoringPreviousState || state is InputState.Empty, "\(state)")
+        } errorCallback: {
+        }
+        XCTAssertTrue(
+            state is InputState.EmptyIgnoringPreviousState || state is InputState.Empty, "\(state)")
     }
 
     func testNumberIgnoresNonDigit() {
@@ -2641,7 +2790,8 @@ extension KeyHandlerBopomofoTests {
             inputText: "a", keyCode: 0, charCode: charCode("a"), flags: [], isVerticalMode: false)
         let _ = handler.handle(input: letter, state: state) { newState in
             state = newState
-        } errorCallback: {}
+        } errorCallback: {
+        }
         // Expect still Number with unchanged buffer
         XCTAssertTrue(state is InputState.Number, "\(state)")
         if let numberState = state as? InputState.Number {
@@ -2657,14 +2807,15 @@ extension KeyHandlerBopomofoTests {
                 inputText: ch, keyCode: 0, charCode: charCode(ch), flags: [], isVerticalMode: false)
             handler.handle(input: input, state: state) { newState in
                 state = newState
-            } errorCallback: {}
+            } errorCallback: {
+            }
         }
         XCTAssertTrue(state is InputState.Number, "\(state)")
         if let numberState = state as? InputState.Number {
             XCTAssertEqual(numberState.number, "123")
             XCTAssertTrue(numberState.candidates.contains("一百二十三"))
             XCTAssertTrue(numberState.candidates.contains("壹佰貳拾參"))
-            XCTAssertTrue(numberState.candidates.contains("CXXIII")) // Roman numeral for 123
+            XCTAssertTrue(numberState.candidates.contains("CXXIII"))  // Roman numeral for 123
         }
     }
 
@@ -2676,33 +2827,35 @@ extension KeyHandlerBopomofoTests {
                 inputText: ch, keyCode: 0, charCode: charCode(ch), flags: [], isVerticalMode: false)
             handler.handle(input: input, state: state) { newState in
                 state = newState
-            } errorCallback: {}
+            } errorCallback: {
+            }
         }
         XCTAssertTrue(state is InputState.Number, "\(state)")
         if let numberState = state as? InputState.Number {
             XCTAssertEqual(numberState.number, "12.34")
             XCTAssertTrue(numberState.candidates.contains("一十二點三四"))
             XCTAssertTrue(numberState.candidates.contains("壹拾貳點參肆"))
-            XCTAssertFalse(numberState.candidates.contains("XII.XXXIV")) // Roman numerals should not be present for decimals
+            XCTAssertFalse(numberState.candidates.contains("XII.XXXIV"))  // Roman numerals should not be present for decimals
         }
     }
 
     func testNumberRomanCandidatesOutOfRange() {
         var state: InputState = InputState.Number(number: "", candidates: [])
-        let keys = Array("4000").map { String($0) } // Max Roman is 3999
+        let keys = Array("4000").map { String($0) }  // Max Roman is 3999
         for ch in keys {
             let input = KeyHandlerInput(
                 inputText: ch, keyCode: 0, charCode: charCode(ch), flags: [], isVerticalMode: false)
             handler.handle(input: input, state: state) { newState in
                 state = newState
-            } errorCallback: {}
+            } errorCallback: {
+            }
         }
         XCTAssertTrue(state is InputState.Number, "\(state)")
         if let numberState = state as? InputState.Number {
             XCTAssertEqual(numberState.number, "4000")
             XCTAssertTrue(numberState.candidates.contains("四千"))
             XCTAssertTrue(numberState.candidates.contains("肆仟"))
-            XCTAssertFalse(numberState.candidates.contains("MMMM")) // Should not contain Roman numeral
+            XCTAssertFalse(numberState.candidates.contains("MMMM"))  // Should not contain Roman numeral
         }
     }
 }
@@ -2714,7 +2867,6 @@ extension KeyHandlerBopomofoTests {
         let allowChangingPriorTone = Preferences.allowChangingPriorTone
         Preferences.associatedPhrasesEnabled = false
         Preferences.allowChangingPriorTone = true
-
         defer {
             Preferences.associatedPhrasesEnabled = associatedPhrasesEnabled
             Preferences.allowChangingPriorTone = allowChangingPriorTone
@@ -2752,6 +2904,289 @@ extension KeyHandlerBopomofoTests {
     // Input 小麥 then change to tone 5
     func testChangingReadingUsingToneKey3() {
         checkChangingReadingUsingToneKey(input: "vul3a947", expected: "小麥˙")
+    }
+
+    func testBopomofoFontAnnotationSupport(input: String, expected: String) {
+        let asociatedPhrases = Preferences.associatedPhrasesEnabled
+        Preferences.associatedPhrasesEnabled = false
+        defer {
+            Preferences.associatedPhrasesEnabled = asociatedPhrases
+        }
+
+        let bopomofoFontAnnotationSupportEnabled = Preferences.bopomofoFontAnnotationSupportEnabled
+        Preferences.bopomofoFontAnnotationSupportEnabled = true
+        defer {
+            Preferences.bopomofoFontAnnotationSupportEnabled = bopomofoFontAnnotationSupportEnabled
+        }
+
+        var state: InputState = InputState.Empty()
+        let keys = Array(input).map {
+            String($0)
+        }
+        for key in keys {
+            let input = KeyHandlerInput(
+                inputText: key, keyCode: 0, charCode: charCode(key), flags: [],
+                isVerticalMode: false)
+            handler.handle(input: input, state: state) { newState in
+                state = newState
+            } errorCallback: {
+            }
+        }
+        XCTAssertTrue(state is InputState.Inputting, "\(state)")
+        if let state = state as? InputState.Inputting {
+            XCTAssertEqual(state.composingBuffer, expected)
+        }
+    }
+
+    func testBopomofoFontAnnotationSupport_BaseCase() {
+        testBopomofoFontAnnotationSupport(input: "u u <u6ek7", expected: "一一，一\u{E01E1}個\u{E01E1}")
+    }
+}
+
+extension KeyHandlerBopomofoTests {
+
+    func testInputBufferThenBacktickThenEsc() {
+        // Type something in the buffer, then press ` to enter choosing punctuation list, then ESC to return to inputting state
+        var state: InputState = InputState.Empty()
+        // Type a valid Bopomofo key (e.g., 's' for ㄋ)
+        let input1 = KeyHandlerInput(
+            inputText: "s", keyCode: 0, charCode: charCode("s"), flags: .shift,
+            isVerticalMode: false)
+        handler.handle(input: input1, state: state) { newState in
+            state = newState
+        } errorCallback: {
+        }
+        XCTAssertTrue(state is InputState.Inputting, "\(state)")
+        // Press `
+        let backtick = KeyHandlerInput(
+            inputText: "`", keyCode: 0, charCode: charCode("`"), flags: .shift,
+            isVerticalMode: false)
+        handler.handle(input: backtick, state: state) { newState in
+            state = newState
+        } errorCallback: {
+        }
+        XCTAssertTrue(state is InputState.Inputting, "\(state)")
+        // Press ESC
+        let esc = KeyHandlerInput(
+            inputText: " ", keyCode: 0, charCode: 27, flags: [], isVerticalMode: false)
+        handler.handle(input: esc, state: state) { newState in
+            state = newState
+        } errorCallback: {
+        }
+        // Should return to inputting state with buffer preserved
+        XCTAssertTrue(
+            state is InputState.EmptyIgnoringPreviousState,
+            "\(state)"
+        )
+    }
+
+    func testInputBufferWithCharactersThenBacktickThenEsc() {
+        let asociatedPhrases = Preferences.associatedPhrasesEnabled
+        Preferences.associatedPhrasesEnabled = false
+        defer {
+            Preferences.associatedPhrasesEnabled = asociatedPhrases
+        }
+        // Type something in the buffer, then press ` to enter choosing punctuation list, then ESC to return to inputting state
+        var state: InputState = InputState.Empty()
+
+        let keys = Array("su3cl3").map {
+            String($0)
+        }
+        for key in keys {
+            let input = KeyHandlerInput(
+                inputText: key, keyCode: 0, charCode: charCode(key), flags: [],
+                isVerticalMode: false)
+            handler.handle(input: input, state: state) { newState in
+                state = newState
+            } errorCallback: {
+            }
+        }
+
+        XCTAssertTrue(state is InputState.Inputting, "\(state)")
+        // Press `
+        let backtick = KeyHandlerInput(
+            inputText: "`", keyCode: 0, charCode: charCode("`"), flags: .shift,
+            isVerticalMode: false)
+        handler.handle(input: backtick, state: state) { newState in
+            state = newState
+        } errorCallback: {
+        }
+        XCTAssertTrue(state is InputState.ChoosingPunctuationList, "\(state)")
+        // Press ESC
+        let esc = KeyHandlerInput(
+            inputText: " ", keyCode: 0, charCode: 27, flags: [], isVerticalMode: false)
+        handler.handle(input: esc, state: state) { newState in
+            state = newState
+        } errorCallback: {
+        }
+        // Should return to inputting state with buffer preserved
+        XCTAssertTrue(
+            state is InputState.Inputting,
+            "\(state)"
+        )
+        if let inputting = state as? InputState.Inputting {
+            XCTAssertEqual(inputting.composingBuffer, "你好")
+        }
+    }
+
+    func testBacktickKey() {
+        // Handle ` key
+        let input = KeyHandlerInput(
+            inputText: "`", keyCode: 0, charCode: charCode("`"), flags: .shift,
+            isVerticalMode: false)
+        var state: InputState = InputState.Empty()
+        handler.handle(input: input, state: state) { newState in
+            state = newState
+        } errorCallback: {
+        }
+        XCTAssertTrue(state is InputState.ChoosingCandidate, "\(state)")
+    }
+
+    func testBacktickThenEsc() {
+        // zonble
+        // Handle ` key then ESC
+        let input = KeyHandlerInput(
+            inputText: "`", keyCode: 0, charCode: charCode("`"), flags: .shift,
+            isVerticalMode: false)
+        var state: InputState = InputState.Empty()
+        handler.handle(input: input, state: state) { newState in
+            state = newState
+        } errorCallback: {
+        }
+        XCTAssertTrue(
+            state is InputState.ChoosingPunctuationList,
+            "\(state)"
+        )
+        let esc = KeyHandlerInput(
+            inputText: " ", keyCode: 0, charCode: 27, flags: [],
+            isVerticalMode: false)
+        handler.handle(input: esc, state: state) { newState in
+            state = newState
+        } errorCallback: {
+        }
+        XCTAssertTrue(
+            state is InputState.EmptyIgnoringPreviousState,
+            "\(state)"
+        )
+    }
+
+    func testBacktickThenBackspace() {
+        // Handle ` key then Backspace
+        let input = KeyHandlerInput(
+            inputText: "`", keyCode: 0, charCode: charCode("`"), flags: .shift,
+            isVerticalMode: false)
+        var state: InputState = InputState.Empty()
+        handler.handle(input: input, state: state) { newState in
+            state = newState
+        } errorCallback: {
+        }
+        XCTAssertTrue(
+            state is InputState.ChoosingPunctuationList,
+            "\(state)"
+        )
+        let backspace = KeyHandlerInput(
+            inputText: " ", keyCode: KeyCode.delete.rawValue, charCode: 0, flags: [],
+            isVerticalMode: false)
+        handler.handle(input: backspace, state: state) { newState in
+            state = newState
+        } errorCallback: {
+        }
+        XCTAssertTrue(
+            state is InputState.EmptyIgnoringPreviousState,
+            "\(state)"
+        )
+    }
+
+    func testBacktickThenBacktick() {
+        // Handle ` key then ` key
+        let input = KeyHandlerInput(
+            inputText: "`", keyCode: 0, charCode: charCode("`"), flags: .shift,
+            isVerticalMode: false)
+        var state: InputState = InputState.Empty()
+        handler.handle(input: input, state: state) { newState in
+            state = newState
+        } errorCallback: {
+        }
+        let input2 = KeyHandlerInput(
+            inputText: "`", keyCode: 0, charCode: charCode("`"), flags: .shift,
+            isVerticalMode: false)
+        handler.handle(input: input2, state: state) { newState in
+            state = newState
+        } errorCallback: {
+        }
+        // Should remain in candidate state or reset, depending on implementation
+        XCTAssertTrue(state is InputState.SelectingFeature, "\(state)")
+    }
+
+    func testBacktickThenPunctuation() {
+        // Handle ` key then valid punctuation (e.g., < for comma)
+        let input = KeyHandlerInput(
+            inputText: "`", keyCode: 0, charCode: charCode("`"), flags: .shift,
+            isVerticalMode: false)
+        var state: InputState = InputState.Empty()
+        handler.handle(input: input, state: state) { newState in
+            state = newState
+        } errorCallback: {
+        }
+        let punct = KeyHandlerInput(
+            inputText: "<", keyCode: 0, charCode: charCode("<"), flags: .shift,
+            isVerticalMode: false)
+        handler.handle(input: punct, state: state) { newState in
+            state = newState
+        } errorCallback: {
+        }
+        // Should either commit a punctuation or reset
+        XCTAssertTrue(
+            state is InputState.ChoosingCandidate || state is InputState.EmptyIgnoringPreviousState
+                || state is InputState.Inputting, "\(state)")
+    }
+
+    func testDoubleBackquoteForceCommit() {
+        // Prepare input: su3cl3 → "你好"
+        let associatedPhrasesEnabled = Preferences.associatedPhrasesEnabled
+        Preferences.associatedPhrasesEnabled = false
+        defer { Preferences.associatedPhrasesEnabled = associatedPhrasesEnabled }
+
+        var state: InputState = InputState.Empty()
+        let keys = Array("su3cl3").map { String($0) }
+        for key in keys {
+            let input = KeyHandlerInput(
+                inputText: key, keyCode: 0, charCode: charCode(key), flags: [],
+                isVerticalMode: false)
+            handler.handle(input: input, state: state) { newState in
+                state = newState
+            } errorCallback: {
+            }
+        }
+        XCTAssertTrue(state is InputState.Inputting, "\(state)")
+        if let inputting = state as? InputState.Inputting {
+            XCTAssertEqual(inputting.composingBuffer, "你好")
+        }
+
+        // First backquote: should not commit yet
+        let backquote = KeyHandlerInput(
+            inputText: "`", keyCode: 0, charCode: charCode("`"), flags: [], isVerticalMode: false)
+        handler.handle(input: backquote, state: state) { newState in
+            state = newState
+        } errorCallback: {
+        }
+        // Should still be inputting
+        XCTAssertTrue(state is InputState.ChoosingPunctuationList, "\(state)")
+
+        var commiting: InputState.Committing?
+        // Second backquote: should force commit
+        handler.handle(input: backquote, state: state) { newState in
+            if let newState = newState as? InputState.Committing {
+                commiting = newState
+            }
+            state = newState
+        } errorCallback: {
+        }
+        XCTAssertTrue(state is InputState.SelectingFeature, "\(state)")
+        XCTAssertNotNil(commiting)
+        if let committing = state as? InputState.Committing {
+            XCTAssertEqual(committing.poppedText, "你好")
+        }
     }
 }
 

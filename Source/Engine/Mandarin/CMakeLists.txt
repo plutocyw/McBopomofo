@@ -1,7 +1,7 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.12)
 project(Mandarin)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
 add_library(MandarinLib Mandarin.h Mandarin.cpp)
@@ -14,23 +14,6 @@ if (ENABLE_TEST)
         enable_testing()
         if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.24.0")
                 cmake_policy(SET CMP0135 NEW)
-        endif()
-
-        if (NOT GTest_FOUND)
-            # Specify release version from https://github.com/google/googletest/releases
-            set(GTEST_VERSION "v1.14.0")
-            MESSAGE(STATUS "Fetching GoogleTest ${GTEST_VERSION} from GitHub")
-            # Let CMake fetch Google Test for us.
-            # https://github.com/google/googletest/tree/main/googletest#incorporating-into-an-existing-cmake-project
-            include(FetchContent)
-
-            FetchContent_Declare(
-                    googletest
-                    URL "https://github.com/google/googletest/archive/refs/tags/${GTEST_VERSION}.zip"
-            )
-            # For Windows: Prevent overriding the parent project's compiler/linker settings
-            set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-            FetchContent_MakeAvailable(googletest)
         endif()
 
         # Test target declarations.

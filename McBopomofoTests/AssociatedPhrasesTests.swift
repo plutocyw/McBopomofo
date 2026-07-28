@@ -43,16 +43,9 @@ final class AssociatedPhrasesTests {
         Preferences.chineseConversionEnabled = chineseConversionEnabled
     }
 
-    @Test(
-        "Test building an associated phrase from characters",
-        arguments: [
-            ("u6", "ㄧ", "一")
-        ])
-    func testBuildingAssociatedPhrasesState(keySequence: String, reading: String, value: String) {
+    private func typeKeys(_ keySequence: String) -> InputState {
         var state: InputState = InputState.Empty()
-        let keys = Array(keySequence).map {
-            String($0)
-        }
+        let keys = Array(keySequence).map(String.init)
         for key in keys {
             let input = KeyHandlerInput(
                 inputText: key, keyCode: 0, charCode: charCode(key), flags: [],
@@ -62,10 +55,26 @@ final class AssociatedPhrasesTests {
             } errorCallback: {
             }
         }
+        return state
+    }
+
+    @Test(
+        "Test building an associated phrase from characters",
+        arguments: [
+            ("u6", "ㄧ", "一")
+        ])
+    func testBuildingAssociatedPhrasesState(keySequence: String, reading: String, value: String) {
+        let state = typeKeys(keySequence)
+        let params = BuildAssociatedPhraseParams()
+        params.previousState = state
+        params.prefixCursorIndex = 1
+        params.reading = reading
+        params.value = value
+        params.candidateIndex = 0
+        params.useVerticalMode = false
+        params.autoTriggered = false
         guard
-            let associatedPhrases = handler.buildAssociatedPhraseState(
-                withPreviousState: state, prefixCursorAt: 1, reading: reading, value: value,
-                selectedCandidateIndex: 0, useVerticalMode: false, useShiftKey: false)
+            let associatedPhrases = handler.buildAssociatedPhraseState(with: params)
                 as? InputState.AssociatedPhrases
         else {
             Issue.record("There should be an associated phrase state")
@@ -81,24 +90,17 @@ final class AssociatedPhrasesTests {
             ("《", "《》"),
         ])
     func testAssociatedPhrasesStatePunctuation1(input: String, result: String) {
-        var state: InputState = InputState.Empty()
-        let keys = Array("{").map {
-            String($0)
-        }
-        for key in keys {
-            let input = KeyHandlerInput(
-                inputText: key, keyCode: 0, charCode: charCode(key), flags: [],
-                isVerticalMode: false)
-            handler.handle(input: input, state: state) { newState in
-                state = newState
-            } errorCallback: {
-            }
-        }
+        let state = typeKeys("{")
+        let params = BuildAssociatedPhraseParams()
+        params.previousState = state
+        params.prefixCursorIndex = 1
+        params.reading = "_punctuation_{"
+        params.value = input
+        params.candidateIndex = 0
+        params.useVerticalMode = false
+        params.autoTriggered = false
         guard
-            let associatedPhrases = handler.buildAssociatedPhraseState(
-                withPreviousState: state, prefixCursorAt: 1, reading: "_punctuation_{",
-                value: input,
-                selectedCandidateIndex: 0, useVerticalMode: false, useShiftKey: false)
+            let associatedPhrases = handler.buildAssociatedPhraseState(with: params)
                 as? InputState.AssociatedPhrases
         else {
             Issue.record("There should be an associated phrase state")
@@ -116,6 +118,35 @@ final class AssociatedPhrasesTests {
             return
         }
         #expect(inputting.composingBuffer == result)
+    }
+
+    @Test("Test building associated phrase state honors supported parameter object fields")
+    func testBuildingAssociatedPhrasesStateHonorsSupportedParameterObjectFields() {
+        let state = typeKeys("u6")
+        let params = BuildAssociatedPhraseParams()
+        params.previousState = state
+        params.prefixCursorIndex = 1
+        params.reading = "ㄧ"
+        params.value = "一"
+        params.candidateIndex = 1
+        params.useVerticalMode = true
+        params.autoTriggered = true
+
+        guard
+            let associatedPhrases = handler.buildAssociatedPhraseState(with: params)
+                as? InputState.AssociatedPhrases
+        else {
+            Issue.record("There should be an associated phrase state")
+            return
+        }
+
+        #expect(associatedPhrases.prefixCursorIndex == 1)
+        #expect(associatedPhrases.prefixReading == "ㄧ")
+        #expect(associatedPhrases.prefixValue == "一")
+        #expect(associatedPhrases.selectedIndex == 1)
+        #expect(associatedPhrases.useVerticalMode)
+        #expect(associatedPhrases.autoTriggered)
+        #expect(associatedPhrases.candidates.count > 0)
     }
 
 }
