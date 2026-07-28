@@ -78,6 +78,7 @@ private let kWindowTitleHeight: CGFloat = 78
     private var llmGoogleAPIKeyLabel: NSTextField?
     private var llmGoogleAPIKeySecureTextField: NSSecureTextField?
     private var llmGoogleAPIKeyPlainTextField: NSTextField?
+    private var llmGoogleAPIKeyHelpButton: NSButton?
     private var llmGoogleAPIKeyRevealButton: NSButton?
     private var llmGoogleAPIKeyRevealed = false
     private var llmGoogleThinkingLevelLabel: NSTextField?
@@ -441,6 +442,13 @@ private let kWindowTitleHeight: CGFloat = 78
         refreshLLMControlsState()
     }
 
+    @objc private func openGoogleAPIKeyPage(_ sender: NSButton) {
+        guard let url = URL(string: "https://aistudio.google.com/apikey") else {
+            return
+        }
+        NSWorkspace.shared.open(url)
+    }
+
     @objc private func toggleLLMGoogleAPIKeyVisibility(_ sender: NSButton) {
         llmGoogleAPIKeyRevealed.toggle()
         refreshLLMControlsState()
@@ -531,7 +539,8 @@ private let kWindowTitleHeight: CGFloat = 78
             || llmGoogleEndpointLabel != nil || llmGoogleEndpointPopUpButton != nil
             || llmGoogleEndpointCustomButton != nil
             || llmGoogleAPIKeyLabel != nil || llmGoogleAPIKeySecureTextField != nil
-            || llmGoogleAPIKeyPlainTextField != nil || llmGoogleAPIKeyRevealButton != nil
+            || llmGoogleAPIKeyPlainTextField != nil || llmGoogleAPIKeyHelpButton != nil
+            || llmGoogleAPIKeyRevealButton != nil
             || llmGoogleThinkingLevelLabel != nil || llmGoogleThinkingLevelPopUpButton != nil
             || llmOpenAIModelLabel != nil || llmOpenAIModelTextField != nil
             || llmOpenAIEndpointLabel != nil || llmOpenAIEndpointTextField != nil
@@ -684,6 +693,16 @@ private let kWindowTitleHeight: CGFloat = 78
         googleAPIKeyPlainTextField.target = self
         googleAPIKeyPlainTextField.action = #selector(changeLLMGoogleAPIKey(_:))
 
+        let googleAPIKeyHelpButton = NSButton(
+            title: NSLocalizedString("Get Free API Key", comment: ""), target: nil, action: nil)
+        googleAPIKeyHelpButton.translatesAutoresizingMaskIntoConstraints = false
+        googleAPIKeyHelpButton.setButtonType(.momentaryPushIn)
+        googleAPIKeyHelpButton.bezelStyle = .rounded
+        googleAPIKeyHelpButton.target = self
+        googleAPIKeyHelpButton.action = #selector(openGoogleAPIKeyPage(_:))
+        googleAPIKeyHelpButton.toolTip = NSLocalizedString(
+            "Open Google AI Studio to create a free API key", comment: "")
+
         let googleAPIKeyRevealButton = NSButton(title: "", target: nil, action: nil)
         googleAPIKeyRevealButton.translatesAutoresizingMaskIntoConstraints = false
         googleAPIKeyRevealButton.setButtonType(.momentaryPushIn)
@@ -771,6 +790,7 @@ private let kWindowTitleHeight: CGFloat = 78
         advancedSettingsView.addSubview(googleAPIKeyLabel)
         advancedSettingsView.addSubview(googleAPIKeySecureTextField)
         advancedSettingsView.addSubview(googleAPIKeyPlainTextField)
+        advancedSettingsView.addSubview(googleAPIKeyHelpButton)
         advancedSettingsView.addSubview(googleAPIKeyRevealButton)
         advancedSettingsView.addSubview(googleThinkingLevelLabel)
         advancedSettingsView.addSubview(googleThinkingLevelPopUpButton)
@@ -895,17 +915,23 @@ private let kWindowTitleHeight: CGFloat = 78
             googleAPIKeyRevealButton.centerYAnchor.constraint(equalTo: googleAPIKeyLabel.centerYAnchor),
             googleAPIKeyRevealButton.widthAnchor.constraint(equalToConstant: 56),
 
+            googleAPIKeyHelpButton.trailingAnchor.constraint(
+                equalTo: googleAPIKeyRevealButton.leadingAnchor, constant: -8),
+            googleAPIKeyHelpButton.centerYAnchor.constraint(
+                equalTo: googleAPIKeyLabel.centerYAnchor),
+            googleAPIKeyHelpButton.widthAnchor.constraint(equalToConstant: 112),
+
             googleAPIKeySecureTextField.leadingAnchor.constraint(
                 equalTo: googleAPIKeyLabel.trailingAnchor, constant: 8),
             googleAPIKeySecureTextField.centerYAnchor.constraint(equalTo: googleAPIKeyLabel.centerYAnchor),
             googleAPIKeySecureTextField.trailingAnchor.constraint(
-                equalTo: googleAPIKeyRevealButton.leadingAnchor, constant: -8),
+                equalTo: googleAPIKeyHelpButton.leadingAnchor, constant: -8),
 
             googleAPIKeyPlainTextField.leadingAnchor.constraint(
                 equalTo: googleAPIKeyLabel.trailingAnchor, constant: 8),
             googleAPIKeyPlainTextField.centerYAnchor.constraint(equalTo: googleAPIKeyLabel.centerYAnchor),
             googleAPIKeyPlainTextField.trailingAnchor.constraint(
-                equalTo: googleAPIKeyRevealButton.leadingAnchor, constant: -8),
+                equalTo: googleAPIKeyHelpButton.leadingAnchor, constant: -8),
 
             googleThinkingLevelLabel.leadingAnchor.constraint(equalTo: rankingButton.leadingAnchor),
             googleThinkingLevelLabel.bottomAnchor.constraint(
@@ -983,6 +1009,7 @@ private let kWindowTitleHeight: CGFloat = 78
         llmGoogleAPIKeyLabel = googleAPIKeyLabel
         llmGoogleAPIKeySecureTextField = googleAPIKeySecureTextField
         llmGoogleAPIKeyPlainTextField = googleAPIKeyPlainTextField
+        llmGoogleAPIKeyHelpButton = googleAPIKeyHelpButton
         llmGoogleAPIKeyRevealButton = googleAPIKeyRevealButton
         llmGoogleThinkingLevelLabel = googleThinkingLevelLabel
         llmGoogleThinkingLevelPopUpButton = googleThinkingLevelPopUpButton
@@ -1035,6 +1062,7 @@ private let kWindowTitleHeight: CGFloat = 78
         llmGoogleAPIKeyLabel?.isEnabled = googleEnabled
         llmGoogleAPIKeySecureTextField?.isEnabled = googleEnabled
         llmGoogleAPIKeyPlainTextField?.isEnabled = googleEnabled
+        llmGoogleAPIKeyHelpButton?.isEnabled = googleEnabled
         llmGoogleAPIKeyRevealButton?.isEnabled = googleEnabled
         llmGoogleThinkingLevelLabel?.isEnabled = googleEnabled
         llmGoogleThinkingLevelPopUpButton?.isEnabled = googleEnabled
@@ -1045,6 +1073,7 @@ private let kWindowTitleHeight: CGFloat = 78
         llmGoogleEndpointPopUpButton?.isHidden = !googleEnabled
         llmGoogleEndpointCustomButton?.isHidden = !googleEnabled
         llmGoogleAPIKeyLabel?.isHidden = !googleEnabled
+        llmGoogleAPIKeyHelpButton?.isHidden = !googleEnabled
         llmGoogleAPIKeyRevealButton?.isHidden = !googleEnabled
         llmGoogleThinkingLevelLabel?.isHidden = !googleEnabled
         llmGoogleThinkingLevelPopUpButton?.isHidden = !googleEnabled

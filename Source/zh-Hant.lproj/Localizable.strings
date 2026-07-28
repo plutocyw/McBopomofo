@@ -186,6 +186,8 @@
 "Cloud Model" = "雲端模型";
 "Cloud Endpoint" = "雲端端點";
 "Google API Key" = "Google API 金鑰";
+"Get Free API Key" = "取得免費金鑰";
+"Open Google AI Studio to create a free API key" = "開啟 Google AI Studio 建立免費 API 金鑰";
 "Thinking Level" = "思考等級";
 "Off" = "關閉";
 "Low" = "低";

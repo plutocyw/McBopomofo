@@ -51,8 +51,16 @@ OpenVanilla 官方發行版本，LLM 功能與此分支所產生的問題也不�
 1. 從 [GitHub Releases](https://github.com/plutocyw/McBopomofo/releases) 下載測試版，或自行 build 並安裝輸入法（建議使用 `McBopomofoInstaller` target）。
 2. 在輸入法偏好設定 `Advanced` 頁籤開啟：
    - `Use Cloud LLM Buffer Correction`
-3. 取得 Google API Key：
-   - 可參考 Google 官方說明：[Get an API key](https://support.google.com/googleapi/answer/6158862?hl=en)
+3. 取得免費的 Google Gemini API Key：
+   - 開啟 [Google AI Studio API Keys](https://aistudio.google.com/apikey)，並登入 Google 帳號。
+   - 選擇既有專案或建立新專案，再按下建立 API key。
+   - 複製產生的金鑰，貼到偏好設定的 `Google API Key` 欄位。也可以直接按欄位右側的
+     `Get Free API Key` 按鈕開啟申請頁面。
+   - Gemini API Free Tier 不需要綁定付款方式，但有每分鐘與每日用量限制；實際額度請在
+     [Google AI Studio](https://aistudio.google.com/) 查看。
+   - Google 可能使用 Free Tier 的輸入與輸出改善其產品。輸入內容可能包含私人資訊時，
+     請先閱讀 [Gemini API 資料使用說明](https://ai.google.dev/gemini-api/terms)；
+     需要付費服務的資料處理條款時，請改用已啟用計費的專案。
 4. 先套用推薦設定（可作為大多數使用者的起始值）：
    - `Cloud Provider`: `Google`
    - `Thinking Level`: `Off`
@@ -73,7 +81,8 @@ OpenVanilla 官方發行版本，LLM 功能與此分支所產生的問題也不�
 
 補充：
 
-- `Google API Key` 欄位右側提供 `Show/Hide` 按鈕，方便檢查輸入是否正確。
+- `Google API Key` 欄位右側提供 `Get Free API Key` 與 `Show/Hide` 按鈕，方便申請及檢查
+  金鑰。
 - Google 的 `Cloud Endpoint` 與 `Cloud Model` 提供下拉預設值，並可按 `Custom` 輸入自訂值。
 - 如需觀察實際請求與回應，可開啟 `Show LLM Debug Alert (Prompt/Response)`。
 - 如需快速確認是否有觸發，可開啟 `Show LLM Activity Indicator`。
