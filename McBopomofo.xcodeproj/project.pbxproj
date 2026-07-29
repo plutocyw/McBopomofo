@@ -111,6 +111,7 @@
 		E001A1C32F00100800AAA001 /* CandidateRankingStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001A1C22F00100800AAA001 /* CandidateRankingStats.swift */; };
 		E002A1B32F10000000AAA001 /* GoogleGenerateContentConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1B22F10000000AAA001 /* GoogleGenerateContentConfiguration.swift */; };
 		E002A1B52F10000100AAA001 /* LLMEditAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1B42F10000100AAA001 /* LLMEditAction.swift */; };
+		E002A1B72F10000200AAA001 /* LLMCloudAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1B62F10000200AAA001 /* LLMCloudAPI.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -280,6 +281,7 @@
 		E001A1C22F00100800AAA001 /* CandidateRankingStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateRankingStats.swift; sourceTree = "<group>"; };
 		E002A1B22F10000000AAA001 /* GoogleGenerateContentConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleGenerateContentConfiguration.swift; sourceTree = "<group>"; };
 		E002A1B42F10000100AAA001 /* LLMEditAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMEditAction.swift; sourceTree = "<group>"; };
+		E002A1B62F10000200AAA001 /* LLMCloudAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMCloudAPI.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -573,6 +575,7 @@
 			isa = PBXGroup;
 			children = (
 				E002A1B22F10000000AAA001 /* GoogleGenerateContentConfiguration.swift */,
+				E002A1B62F10000200AAA001 /* LLMCloudAPI.swift */,
 				E002A1B42F10000100AAA001 /* LLMEditAction.swift */,
 			);
 			path = LLM;
@@ -803,6 +806,7 @@
 				E001A1C12F00100700AAA001 /* AppleOnDeviceCandidateRanker.swift in Sources */,
 				E002A1B32F10000000AAA001 /* GoogleGenerateContentConfiguration.swift in Sources */,
 				E002A1B52F10000100AAA001 /* LLMEditAction.swift in Sources */,
+				E002A1B72F10000200AAA001 /* LLMCloudAPI.swift in Sources */,
 				D4E569DC27A34D0E00AC2CEF /* KeyHandler.mm in Sources */,
 				6A4F5F982879E838008C4307 /* reading_grid.cpp in Sources */,
 				D47F7DD0278C0897002F9DD7 /* NonModalAlertWindowController.swift in Sources */,

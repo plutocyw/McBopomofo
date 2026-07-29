@@ -396,6 +396,101 @@ struct CandidateRankingTests {
         #expect(thinkingConfig?["thinkingLevel"] == nil)
     }
 
+    @Test("Cloud API normalizes Google model name and endpoint")
+    func cloudAPINormalizesGoogleEndpoint() {
+        let modelName = LLMCloudAPI.normalizedGoogleModelName(
+            "  models/gemini-3.6-flash  ")
+        let endpoint = LLMCloudAPI.googleGenerateContentURL(
+            baseEndpoint: "https://example.com/v1beta/",
+            modelName: modelName)
+
+        #expect(modelName == "gemini-3.6-flash")
+        #expect(
+            endpoint?.absoluteString
+                == "https://example.com/v1beta/models/gemini-3.6-flash:generateContent")
+    }
+
+    @Test("Cloud API builds Google edit action request")
+    func cloudAPIBuildsGoogleRequest() throws {
+        let endpoint = try #require(URL(string: "https://example.com/generate"))
+        let request = try LLMCloudAPI.makeGoogleRequest(
+            endpoint: endpoint,
+            modelName: "gemini-3.6-flash",
+            apiKey: "google-test-key",
+            prompt: "測試提示",
+            thinkingLevel: .low,
+            editActionCount: 3,
+            timeoutInterval: 1.25)
+        let bodyData = try #require(request.httpBody)
+        let object = try JSONSerialization.jsonObject(with: bodyData)
+        let body = try #require(object as? [String: Any])
+        let systemInstruction = try #require(
+            body["systemInstruction"] as? [String: Any])
+        let systemParts = try #require(
+            systemInstruction["parts"] as? [[String: Any]])
+        let contents = try #require(body["contents"] as? [[String: Any]])
+        let contentParts = try #require(
+            contents.first?["parts"] as? [[String: Any]])
+        let generationConfig = try #require(
+            body["generationConfig"] as? [String: Any])
+
+        #expect(request.httpMethod == "POST")
+        #expect(
+            request.value(forHTTPHeaderField: "Content-Type")
+                == "application/json")
+        #expect(
+            request.value(forHTTPHeaderField: "x-goog-api-key")
+                == "google-test-key")
+        #expect(request.timeoutInterval == 1.25)
+        #expect(
+            (systemParts.first?["text"] as? String)?
+                .contains("action selector") == true)
+        #expect(contentParts.first?["text"] as? String == "測試提示")
+        #expect(generationConfig["responseMimeType"] as? String == "application/json")
+    }
+
+    @Test("Cloud API builds OpenAI rewrite request")
+    func cloudAPIBuildsOpenAIRequest() throws {
+        let endpoint = try #require(URL(string: "https://example.com/chat/completions"))
+        let request = try LLMCloudAPI.makeOpenAIRequest(
+            endpoint: endpoint,
+            modelName: "test-model",
+            apiKey: "openai-test-key",
+            prompt: "測試提示",
+            usesEditActions: false,
+            timeoutInterval: 0.75)
+        let bodyData = try #require(request.httpBody)
+        let object = try JSONSerialization.jsonObject(with: bodyData)
+        let body = try #require(object as? [String: Any])
+        let messages = try #require(body["messages"] as? [[String: Any]])
+
+        #expect(request.httpMethod == "POST")
+        #expect(
+            request.value(forHTTPHeaderField: "Authorization")
+                == "Bearer openai-test-key")
+        #expect(request.timeoutInterval == 0.75)
+        #expect(body["model"] as? String == "test-model")
+        #expect(body["temperature"] as? Double == 0)
+        #expect(messages.count == 2)
+        #expect(messages.first?["role"] as? String == "system")
+        #expect(messages.last?["role"] as? String == "user")
+        #expect(messages.last?["content"] as? String == "測試提示")
+    }
+
+    @Test("Cloud API extracts provider response text")
+    func cloudAPIExtractsResponseText() {
+        let googleData = Data(
+            #"{"candidates":[{"content":{"parts":[{"text":"前半"},{"text":"後半"}]}}]}"#
+                .utf8)
+        let openAIData = Data(
+            #"{"choices":[{"message":{"content":"完整回覆"}}]}"#.utf8)
+
+        #expect(LLMCloudAPI.googleResponseText(from: googleData) == "前半後半")
+        #expect(LLMCloudAPI.openAIResponseText(from: openAIData) == "完整回覆")
+        #expect(LLMCloudAPI.googleResponseText(from: Data("{}".utf8)) == nil)
+        #expect(LLMCloudAPI.openAIResponseText(from: Data("{}".utf8)) == nil)
+    }
+
     @Test("Stats record and reset")
     func candidateRankingStatsRecordAndReset() {
         CandidateRankingStats.reset()
