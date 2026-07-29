@@ -109,6 +109,8 @@
 		E001A1BF2F00100600AAA001 /* TimeoutCandidateRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001A1BE2F00100600AAA001 /* TimeoutCandidateRanker.swift */; };
 		E001A1C12F00100700AAA001 /* AppleOnDeviceCandidateRanker.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001A1C02F00100700AAA001 /* AppleOnDeviceCandidateRanker.swift */; };
 		E001A1C32F00100800AAA001 /* CandidateRankingStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = E001A1C22F00100800AAA001 /* CandidateRankingStats.swift */; };
+		E002A1B32F10000000AAA001 /* GoogleGenerateContentConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1B22F10000000AAA001 /* GoogleGenerateContentConfiguration.swift */; };
+		E002A1B52F10000100AAA001 /* LLMEditAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1B42F10000100AAA001 /* LLMEditAction.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -276,6 +278,8 @@
 		E001A1BE2F00100600AAA001 /* TimeoutCandidateRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeoutCandidateRanker.swift; sourceTree = "<group>"; };
 		E001A1C02F00100700AAA001 /* AppleOnDeviceCandidateRanker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleOnDeviceCandidateRanker.swift; sourceTree = "<group>"; };
 		E001A1C22F00100800AAA001 /* CandidateRankingStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CandidateRankingStats.swift; sourceTree = "<group>"; };
+		E002A1B22F10000000AAA001 /* GoogleGenerateContentConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleGenerateContentConfiguration.swift; sourceTree = "<group>"; };
+		E002A1B42F10000100AAA001 /* LLMEditAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMEditAction.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -344,6 +348,7 @@
 				6A38BBDD15FC115800A8A51F /* Data */,
 				6A0D4F1215FC0EB100ABF4B3 /* Engine */,
 				E001A1B12F00100000AAA001 /* CandidateRanking */,
+				E002A1B12F10000000AAA001 /* LLM */,
 				6ACA41E715FC1D9000935EF6 /* Installer */,
 				6A0D4F4715FC0EB900ABF4B3 /* Resources */,
 				D4A13D5927A59D5C003BE359 /* InputMethodController.swift */,
@@ -562,6 +567,15 @@
 				E001A1BE2F00100600AAA001 /* TimeoutCandidateRanker.swift */,
 			);
 			path = CandidateRanking;
+			sourceTree = "<group>";
+		};
+		E002A1B12F10000000AAA001 /* LLM */ = {
+			isa = PBXGroup;
+			children = (
+				E002A1B22F10000000AAA001 /* GoogleGenerateContentConfiguration.swift */,
+				E002A1B42F10000100AAA001 /* LLMEditAction.swift */,
+			);
+			path = LLM;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -787,6 +801,8 @@
 				E001A1B72F00100200AAA001 /* NoOpCandidateRanker.swift in Sources */,
 				E001A1BF2F00100600AAA001 /* TimeoutCandidateRanker.swift in Sources */,
 				E001A1C12F00100700AAA001 /* AppleOnDeviceCandidateRanker.swift in Sources */,
+				E002A1B32F10000000AAA001 /* GoogleGenerateContentConfiguration.swift in Sources */,
+				E002A1B52F10000100AAA001 /* LLMEditAction.swift in Sources */,
 				D4E569DC27A34D0E00AC2CEF /* KeyHandler.mm in Sources */,
 				6A4F5F982879E838008C4307 /* reading_grid.cpp in Sources */,
 				D47F7DD0278C0897002F9DD7 /* NonModalAlertWindowController.swift in Sources */,
