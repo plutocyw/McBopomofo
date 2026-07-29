@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <chrono>
 #include <limits>
+#include <memory>
 #include <stack>
 #include <string>
 #include <utility>
@@ -223,7 +224,8 @@ std::vector<ReadingGrid::Candidate> ReadingGrid::candidatesAt(size_t loc) {
 
   for (const NodeInSpan& nodeInSpan : nodes) {
     for (const LanguageModel::Unigram& unigram : nodeInSpan.node->unigrams()) {
-        result.emplace_back(nodeInSpan.node->reading(), unigram.value(), unigram.rawValue());
+      result.emplace_back(nodeInSpan.node->reading(), unigram.value(),
+                          unigram.rawValue());
     }
   }
   return result;
@@ -335,9 +337,7 @@ void ReadingGrid::update() {
   size_t begin =
       (cursor_ <= kMaximumSpanLength) ? 0 : cursor_ - kMaximumSpanLength;
   size_t end = cursor_ + kMaximumSpanLength;
-  if (end > readings_.size()) {
-    end = readings_.size();
-  }
+  end = std::min(end, readings_.size());
 
   for (size_t pos = begin; pos < end; pos++) {
     for (size_t len = 1; len <= kMaximumSpanLength && pos + len <= end; len++) {
@@ -549,9 +549,7 @@ void ReadingGrid::Span::add(const ReadingGrid::NodePtr& node) {
   assert(node->spanningLength() > 0 &&
          node->spanningLength() <= kMaximumSpanLength);
   nodes_[node->spanningLength() - 1] = node;
-  if (node->spanningLength() >= maxLength_) {
-    maxLength_ = node->spanningLength();
-  }
+  maxLength_ = std::max(maxLength_, node->spanningLength());
 }
 
 void ReadingGrid::Span::removeNodesOfOrLongerThan(size_t length) {
@@ -579,7 +577,7 @@ void ReadingGrid::Span::removeNodesOfOrLongerThan(size_t length) {
   }
 }
 
-ReadingGrid::NodePtr ReadingGrid::Span::nodeOf(size_t length) const {
+const ReadingGrid::NodePtr& ReadingGrid::Span::nodeOf(size_t length) const {
   assert(length > 0 && length <= kMaximumSpanLength);
   return nodes_[length - 1];
 }

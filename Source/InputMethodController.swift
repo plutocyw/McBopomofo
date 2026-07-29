@@ -672,7 +672,6 @@ class McBopomofoInputMethodController: IMKInputController {
             self.errorDescription = errorDescription
         }
     }
-    lazy var charInfo: SystemCharacterInfo? = try? SystemCharacterInfo()
 
     // Share the stored issues, so a set of issues is shown as notification only once.
     static var latestUserFileIssues: [String] = []
@@ -704,6 +703,21 @@ class McBopomofoInputMethodController: IMKInputController {
         associatedPhrasesItem.state = Preferences.associatedPhrasesEnabled.state
 
         let inputMode = keyHandler.inputMode
+
+        // Only Bopomofo mode supports Bopomofo Font Annotation. If support is
+        // on, ensure that the user has a way to disable it. Otherwise, only
+        // show the item when it is set to show in the input menu.
+        if inputMode == .bopomofo
+            && (Preferences.showBopomofoFontAnnotationSupportItemInInputMenu
+                || Preferences.bopomofoFontAnnotationSupportEnabled)
+        {
+            let bopomofoFontAnnotationSupportItem = menu.addItem(
+                withTitle: NSLocalizedString("Bopomofo Font Annotation Support", comment: ""),
+                action: #selector(toggleBopomofoFontAnnotationSupport(_:)), keyEquivalent: "")
+            bopomofoFontAnnotationSupportItem.state =
+                Preferences.bopomofoFontAnnotationSupportEnabled.state
+        }
+
         let optionKeyPressed = NSEvent.modifierFlags.contains(.option)
         if inputMode == .bopomofo && optionKeyPressed {
             let phaseReplacementItem = menu.addItem(
@@ -919,6 +933,14 @@ class McBopomofoInputMethodController: IMKInputController {
         _ = Preferences.toggleAssociatedPhrasesEnabled()
     }
 
+    @objc func toggleBopomofoFontAnnotationSupport(_ sender: Any?) {
+        let enabled = Preferences.toggleBopomofoFontAnnotationSupportEnabled()
+        NotifierController.notify(
+            message: enabled
+                ? NSLocalizedString("Bopomofo Font Annotation Support On", comment: "")
+                : NSLocalizedString("Bopomofo Font Annotation Support Off", comment: ""))
+    }
+
     @objc func togglePhraseReplacement(_ sender: Any?) {
         let enabled = Preferences.togglePhraseReplacementEnabled()
         LanguageModelManager.phraseReplacementEnabled = enabled
@@ -1096,6 +1118,8 @@ extension McBopomofoInputMethodController {
             handle(state: newState, previous: previous, client: client)
         case let newState as InputState.Number:
             handle(state: newState, previous: previous, client: client)
+        case let newState as InputState.IcuTransform:
+            handle(state: newState, previous: previous, client: client)
         case let newState as InputState.Big5:
             handle(state: newState, previous: previous, client: client)
         case let newState as InputState.SelectingDictionary:
@@ -1154,7 +1178,8 @@ extension McBopomofoInputMethodController {
         case let previous as InputState.NotEmpty:
             commit(text: previous.composingBuffer, client: client)
         case is InputState.Big5,
-            is InputState.Number:
+            is InputState.Number,
+            is InputState.IcuTransform:
             client.setMarkedText(
                 "", selectionRange: NSMakeRange(0, 0), replacementRange: NSMakeRange(0, 0))
         default:
@@ -1336,8 +1361,7 @@ extension McBopomofoInputMethodController {
         handleStateWithSimpleCandidateWindow(state: state, previous: previous, client: client)
     }
 
-    private func handle(state: InputState.Number, previous: InputState, client: Any?) {
-
+    private func handleSpecialInputWithCandidateWindow(state: InputState, composingBuffer: String, candidateCount: Int, client: Any?) {
         gCurrentCandidateController?.visible = false
         hideTooltip()
 
@@ -1346,16 +1370,25 @@ extension McBopomofoInputMethodController {
         }
 
         client.setMarkedText(
-            state.composingBuffer,
+            composingBuffer,
             selectionRange: NSMakeRange(
-                (state.composingBuffer as NSString).length,
+                (composingBuffer as NSString).length,
                 0
             ),
             replacementRange: NSMakeRange(NSNotFound, NSNotFound)
         )
-        if state.candidateCount > 0 {
+        if candidateCount > 0 {
             show(candidateWindowWith: state, client: client)
         }
+    }
+
+
+    private func handle(state: InputState.Number, previous: InputState, client: Any?) {
+        handleSpecialInputWithCandidateWindow(state: state, composingBuffer: state.composingBuffer, candidateCount: state.candidateCount, client: client)
+    }
+
+    private func handle(state: InputState.IcuTransform, previous: InputState, client: Any?) {
+        handleSpecialInputWithCandidateWindow(state: state, composingBuffer: state.composingBuffer, candidateCount: state.candidateCount, client: client)
     }
 
     private func handle(state: InputState.Big5, previous: InputState, client: Any?) {
@@ -1487,7 +1520,8 @@ extension McBopomofoInputMethodController {
                 is InputState.SelectingDateMacro,
                 is InputState.SelectingDictionary,
                 is InputState.ShowingCharInfo,
-                is InputState.Number:
+                is InputState.Number,
+                is InputState.IcuTransform:
                 return true
             default:
                 break
@@ -1550,19 +1584,19 @@ extension McBopomofoInputMethodController {
         let keyLabels =
             candidateKeys.count >= 4
             ? Array(candidateKeys) : Array(Preferences.defaultCandidateKeys)
-        let shouldUseShift =
-            switch state {
-            case let state as InputState.AssociatedPhrases:
-                state.useShiftKey
-            case is InputState.AssociatedPhrasesPlain,
-                is InputState.Number:
-                true
-            default:
-                false
-            }
-        let keyLabelPrefix = shouldUseShift ? "⇧ " : ""
+
+        let keyLabelFormat: (String)->String = switch state {
+        case let state as InputState.AssociatedPhrases where state.autoTriggered:
+            { _ in "⇧ ⏎" }
+        case is InputState.AssociatedPhrasesPlain,
+            is InputState.Number,
+            is InputState.IcuTransform:
+            { "⇧ " + $0 }
+        default:
+            { $0 }
+        }
         gCurrentCandidateController?.keyLabels = keyLabels.map {
-            CandidateKeyLabel(key: String($0), displayedText: keyLabelPrefix + String($0))
+            CandidateKeyLabel(key: String($0), displayedText: keyLabelFormat(String($0)))
         }
 
         gCurrentCandidateController?.delegate = self
@@ -1607,11 +1641,22 @@ extension McBopomofoInputMethodController {
         if cursor == composingBuffer.count && cursor != 0 {
             cursor -= 1
         }
+
+        var isVerticalMode = false
         while lineHeightRect.origin.x == 0 && lineHeightRect.origin.y == 0 && cursor >= 0 {
-            (client as? IMKTextInput)?.attributes(
+            let attributes: [AnyHashable: Any]? = (client as? IMKTextInput)?.attributes(
                 forCharacterIndex: cursor, lineHeightRectangle: &lineHeightRect)
+            let useVerticalMode =
+                (attributes?["IMKTextOrientation"] as? NSNumber)?.intValue == 0 || false
+            isVerticalMode = isVerticalMode || useVerticalMode
             cursor -= 1
         }
+
+        // Make sure that tooltip hovers next to the vertical text.
+        if isVerticalMode && lineHeightRect.size.height > 0 {
+            lineHeightRect.origin.x += (lineHeightRect.size.width + 1.0)
+        }
+
         McBopomofoInputMethodController.tooltipController.show(
             tooltip: tooltip, at: lineHeightRect.origin)
     }

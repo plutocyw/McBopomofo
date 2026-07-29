@@ -23,6 +23,7 @@
 
 import Cocoa
 import NSStringUtils
+import SystemCharacterInfo
 
 @objc protocol CandidateProvider: NSObjectProtocol {
     @objc var candidateCount: Int { get }
@@ -128,6 +129,12 @@ class InputState: NSObject {
                     .Number(number: "", candidates: [])
                 }
             ),
+            (
+                NSLocalizedString("Quick Text Transform", comment: ""),
+                {
+                    .IcuTransform(string: "", candidates: [])
+                }
+            ),
         ]
 
         override var description: String {
@@ -231,6 +238,36 @@ class InputState: NSObject {
 
         @objc public var composingBuffer: String {
             return "[數字] \(number)"
+        }
+    }
+
+    @objc(InputStateIcuTransform)
+    class IcuTransform: InputState, CandidateProvider {
+        var candidateCount: Int {
+            candidates.count
+        }
+        func candidate(at index: Int) -> String {
+            candidates[index]
+        }
+
+        func reading(at index: Int) -> String? {
+            candidates[index]
+        }
+
+        @objc private(set) var string: String
+        @objc private(set) var candidates: [String]
+
+        @objc init(string: String, candidates: [String]) {
+            self.string = string
+            self.candidates = candidates
+        }
+
+        override var description: String {
+            "<InputState.IcuTransform, string:\(string)>"
+        }
+
+        @objc public var composingBuffer: String {
+            return "[文字轉換] \(string)"
         }
 
     }
@@ -530,6 +567,25 @@ class InputState: NSObject {
         }
     }
 
+    ///  Subclass of ChoosingCandidate specially for choosing punctuations in
+    ///  the punctuation input mode.
+    @objc(InputChoosingPunctuationList)
+    class ChoosingPunctuationList: ChoosingCandidate {
+        override var description: String {
+            "<InputState.ChoosingPunctuationList, candidates:\(candidates), useVerticalMode:\(useVerticalMode),  composingBuffer:\(composingBuffer), cursorIndex:\(cursorIndex)>"
+        }
+
+        @objc init(choosingCandidate: ChoosingCandidate) {
+            super.init(
+                composingBuffer: choosingCandidate.composingBuffer,
+                cursorIndex: choosingCandidate.cursorIndex,
+                candidates: choosingCandidate.candidates,
+                useVerticalMode: choosingCandidate.useVerticalMode,
+                rankingContextToken: choosingCandidate.rankingContextToken
+            )
+        }
+    }
+
     // MARK: -
 
     /// Represents that the user is choosing in a candidates list
@@ -545,12 +601,12 @@ class InputState: NSObject {
         @objc private(set) var selectedIndex: Int = 0
         @objc private(set) var candidates: [Candidate] = []
         @objc private(set) var useVerticalMode: Bool = false
-        @objc private(set) var useShiftKey: Bool = false
+        @objc private(set) var autoTriggered: Bool = false
 
         @objc init(
             previousState: NotEmpty, prefixCursorIndex: Int, prefixReading: String,
             prefixValue: String,
-            selectedIndex: Int, candidates: [Candidate], useVerticalMode: Bool, useShiftKey: Bool
+            selectedIndex: Int, candidates: [Candidate], useVerticalMode: Bool, autoTriggered: Bool
         ) {
             self.previousState = previousState
             self.prefixCursorIndex = prefixCursorIndex
@@ -559,7 +615,7 @@ class InputState: NSObject {
             self.selectedIndex = selectedIndex
             self.candidates = candidates
             self.useVerticalMode = useVerticalMode
-            self.useShiftKey = useShiftKey
+            self.autoTriggered = autoTriggered
             super.init(
                 composingBuffer: previousState.composingBuffer,
                 cursorIndex: previousState.cursorIndex)
@@ -570,7 +626,7 @@ class InputState: NSObject {
         }
 
         var candidateCount: Int {
-            candidates.count
+            autoTriggered ? 1 : candidates.count
         }
 
         func candidate(at index: Int) -> String {
@@ -579,6 +635,19 @@ class InputState: NSObject {
 
         func reading(at index: Int) -> String? {
             candidates[index].reading
+        }
+
+        @objc
+        func toggle(autoTriggered: Bool) -> AssociatedPhrases {
+            AssociatedPhrases(
+                previousState: previousState,
+                prefixCursorIndex: prefixCursorIndex,
+                prefixReading: prefixReading,
+                prefixValue: prefixValue,
+                selectedIndex: selectedIndex,
+                candidates: candidates,
+                useVerticalMode: useVerticalMode,
+                autoTriggered: autoTriggered)
         }
 
     }
@@ -700,7 +769,7 @@ class InputState: NSObject {
                 }.joined(separator: " ")
             }
 
-            self.menuTitleValueMapping = [
+            var menuTitleValueMapping = [
                 buildItem(
                     prefix: "UTF-8 HEX", selectedString: selectedPhrase,
                     builder: { string in
@@ -736,6 +805,35 @@ class InputState: NSObject {
                         getCharCode(string: string, encoding: 0x0A01)
                     }),
             ]
+            if selectedString.count == 1,
+                let dictionary = UnihanDictionary.shared,
+                let result = try? dictionary.read(string: selectedString)
+            {
+                let mapping: [(String, String?)] = [
+                    (NSLocalizedString("Unicode Name", comment: ""), result.name),
+                    (NSLocalizedString("Phoenetic", comment: ""), result.phonetic),
+                    (NSLocalizedString("Pinyin", comment: ""), result.pinyinRoc),
+                    (NSLocalizedString("Canjie", comment: ""), result.canjie),
+                    (NSLocalizedString("Canjie Keys", comment: ""), result.canjieKeys),
+                    (NSLocalizedString("Japanese", comment: ""), result.japanese),
+                    (NSLocalizedString("Japanese Kun", comment: ""), result.japaneseKun),
+                    (NSLocalizedString("Japanese On", comment: ""), result.japaneseOn),
+                    (NSLocalizedString("Korean", comment: ""), result.korean),
+                ]
+                for entry in mapping {
+                    if let string = entry.1, !string.isEmpty {
+                        let truncated =
+                            string.count > 16
+                            ? String(
+                                string[
+                                    string
+                                        .startIndex..<string.index(string.startIndex, offsetBy: 16)]
+                            ) + "…" : string
+                        menuTitleValueMapping.append(("\(entry.0): \(truncated)", string))
+                    }
+                }
+            }
+            self.menuTitleValueMapping = menuTitleValueMapping
             self.menu = menuTitleValueMapping.map { $0.0 }
             super.init(
                 composingBuffer: previousState.composingBuffer,

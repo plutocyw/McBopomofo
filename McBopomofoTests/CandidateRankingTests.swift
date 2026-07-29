@@ -159,6 +159,25 @@ struct CandidateRankingTests {
         #expect(state.rankingContextToken == token)
     }
 
+    @Test("ChoosingPunctuationList preserves ranking token")
+    func choosingPunctuationListPreservesRankingToken() {
+        let token = CandidateRankingContextToken()
+        let candidates = [
+            InputState.Candidate(reading: "_punctuation_,", value: "，", displayText: "，", rawValue: "，")
+        ]
+        let state = InputState.ChoosingCandidate(
+            composingBuffer: "，",
+            cursorIndex: 1,
+            candidates: candidates,
+            useVerticalMode: false,
+            rankingContextToken: token
+        )
+
+        let punctuationState = InputState.ChoosingPunctuationList(choosingCandidate: state)
+
+        #expect(punctuationState.rankingContextToken == token)
+    }
+
     @Test("Pipeline request applies topN bound")
     func pipelineRequestRespectsTopN() {
         let state = makeChoosingCandidateState()
