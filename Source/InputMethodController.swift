@@ -1545,18 +1545,13 @@ extension McBopomofoInputMethodController {
             )
         }
 
-        let semaphore = DispatchSemaphore(value: 0)
-        var responseData: Data?
-        var responseError: Error?
-        URLSession.shared.dataTask(with: request) { data, _, error in
-            responseData = data
-            responseError = error
-            semaphore.signal()
-        }.resume()
-
-        let wait = semaphore.wait(timeout: .now() + timeout + 0.05)
+        let transportResult = LLMHTTPTransport.live.send(
+            request,
+            waitTimeout: timeout + 0.05)
         let elapsedMs = Int((DispatchTime.now().uptimeNanoseconds - startNs) / 1_000_000)
-        if wait == .timedOut {
+        let responseData: Data
+        switch transportResult {
+        case .timedOut:
             return InputtingRewriteResponse(
                 provider: provider,
                 prompt: prompt,
@@ -1567,8 +1562,7 @@ extension McBopomofoInputMethodController {
                 fallbackReason: "requestTimeout",
                 errorDescription: nil
             )
-        }
-        guard let responseData else {
+        case .emptyResponse(let errorDescription):
             return InputtingRewriteResponse(
                 provider: provider,
                 prompt: prompt,
@@ -1577,8 +1571,10 @@ extension McBopomofoInputMethodController {
                 rewrittenBuffer: nil,
                 selections: nil,
                 fallbackReason: "emptyResponse",
-                errorDescription: responseError.map { "\($0)" }
+                errorDescription: errorDescription
             )
+        case .success(let data):
+            responseData = data
         }
         let rawResponse = String(data: responseData, encoding: .utf8)
         guard let responseText = LLMCloudAPI.googleResponseText(from: responseData) else {
@@ -1709,18 +1705,13 @@ extension McBopomofoInputMethodController {
             )
         }
 
-        let semaphore = DispatchSemaphore(value: 0)
-        var responseData: Data?
-        var responseError: Error?
-        URLSession.shared.dataTask(with: request) { data, _, error in
-            responseData = data
-            responseError = error
-            semaphore.signal()
-        }.resume()
-
-        let wait = semaphore.wait(timeout: .now() + timeout + 0.05)
+        let transportResult = LLMHTTPTransport.live.send(
+            request,
+            waitTimeout: timeout + 0.05)
         let elapsedMs = Int((DispatchTime.now().uptimeNanoseconds - startNs) / 1_000_000)
-        if wait == .timedOut {
+        let responseData: Data
+        switch transportResult {
+        case .timedOut:
             return InputtingRewriteResponse(
                 provider: provider,
                 prompt: prompt,
@@ -1731,8 +1722,7 @@ extension McBopomofoInputMethodController {
                 fallbackReason: "requestTimeout",
                 errorDescription: nil
             )
-        }
-        guard let responseData else {
+        case .emptyResponse(let errorDescription):
             return InputtingRewriteResponse(
                 provider: provider,
                 prompt: prompt,
@@ -1741,8 +1731,10 @@ extension McBopomofoInputMethodController {
                 rewrittenBuffer: nil,
                 selections: nil,
                 fallbackReason: "emptyResponse",
-                errorDescription: responseError.map { "\($0)" }
+                errorDescription: errorDescription
             )
+        case .success(let data):
+            responseData = data
         }
         let rawResponse = String(data: responseData, encoding: .utf8)
         guard let responseText = LLMCloudAPI.openAIResponseText(from: responseData) else {
