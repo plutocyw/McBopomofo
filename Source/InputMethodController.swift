@@ -48,7 +48,6 @@ extension CandidateController {
 class McBopomofoInputMethodController: IMKInputController {
 
     private static let tooltipController = TooltipController()
-    private static let cloudPromptCandidateLimitPerSegment = 12
 
     // MARK: -
 
@@ -85,40 +84,6 @@ class McBopomofoInputMethodController: IMKInputController {
         let reading: String
         let currentValue: String
         let candidates: [InputState.Candidate]
-    }
-
-    private struct InputtingRewriteResponse {
-        let provider: String
-        let prompt: String
-        let rawResponse: String?
-        let elapsedMs: Int
-        let rewrittenBuffer: String?
-        let selections: [Int]?
-        let actionIDs: [Int]?
-        let fallbackReason: String?
-        let errorDescription: String?
-
-        init(
-            provider: String,
-            prompt: String,
-            rawResponse: String?,
-            elapsedMs: Int,
-            rewrittenBuffer: String?,
-            selections: [Int]?,
-            actionIDs: [Int]? = nil,
-            fallbackReason: String?,
-            errorDescription: String?
-        ) {
-            self.provider = provider
-            self.prompt = prompt
-            self.rawResponse = rawResponse
-            self.elapsedMs = elapsedMs
-            self.rewrittenBuffer = rewrittenBuffer
-            self.selections = selections
-            self.actionIDs = actionIDs
-            self.fallbackReason = fallbackReason
-            self.errorDescription = errorDescription
-        }
     }
 
     // Share the stored issues, so a set of issues is shown as notification only once.
@@ -1346,7 +1311,7 @@ extension McBopomofoInputMethodController {
     }
 
     private func applyInputtingCandidateRankingResult(
-        _ result: InputtingRewriteResponse,
+        _ result: LLMInputtingRewriteResult,
         context: InputtingRankingContext,
         client: Any
     ) {
@@ -1445,8 +1410,18 @@ extension McBopomofoInputMethodController {
         handle(state: rerankedInputtingState, client: client)
     }
 
-    private func rankWholeInputtingBuffer(context: InputtingRankingContext) -> InputtingRewriteResponse {
-        let prompt = makeInputtingRewritePrompt(context: context)
+    private func rankWholeInputtingBuffer(
+        context: InputtingRankingContext
+    ) -> LLMInputtingRewriteResult {
+        let request = LLMInputtingRewriteRequest(
+            composingBuffer: context.composingBuffer,
+            segments: context.segments.map { segment in
+                LLMInputtingRewriteSegment(
+                    reading: segment.reading,
+                    currentValue: segment.currentValue,
+                    candidates: segment.candidates.map(\.value))
+            },
+            editActions: context.editActions)
         let configuration: LLMCloudProviderConfiguration
         switch Preferences.llmCloudProvider {
         case .google:
@@ -1464,374 +1439,10 @@ extension McBopomofoInputMethodController {
                 usesEditActions: context.editActions != nil)
         }
         let timeout = max(0.05, Double(Preferences.llmCandidateRankingTimeoutMs) / 1000.0)
-        let response = LLMCloudClient.live.send(
-            prompt: prompt,
+        return LLMInputtingRewriteEngine.live.rewrite(
+            request: request,
             configuration: configuration,
             timeout: timeout)
-        guard let responseText = response.responseText else {
-            return InputtingRewriteResponse(
-                provider: response.provider,
-                prompt: prompt,
-                rawResponse: response.rawResponse,
-                elapsedMs: response.elapsedMs,
-                rewrittenBuffer: nil,
-                selections: nil,
-                fallbackReason: response.fallbackReason,
-                errorDescription: response.errorDescription
-            )
-        }
-        if let editActions = context.editActions {
-            let parsedActionResult = parseInputtingEditActionResponse(
-                from: responseText,
-                input: context.composingBuffer,
-                actions: editActions)
-            return InputtingRewriteResponse(
-                provider: response.provider,
-                prompt: prompt,
-                rawResponse: responseText,
-                elapsedMs: response.elapsedMs,
-                rewrittenBuffer: parsedActionResult?.rewrittenBuffer,
-                selections: nil,
-                actionIDs: parsedActionResult?.actionIDs,
-                fallbackReason: parsedActionResult == nil ? "parserFallback" : nil,
-                errorDescription: nil
-            )
-        }
-        let rewrittenBuffer = parseInputtingRewrittenBuffer(
-            from: responseText,
-            expectedCharacterCount: context.composingBuffer.count
-        )
-        let selections = rewrittenBuffer.flatMap {
-            mapRewrittenBufferToSelections($0, segments: context.segments)
-        }
-        return InputtingRewriteResponse(
-            provider: response.provider,
-            prompt: prompt,
-            rawResponse: responseText,
-            elapsedMs: response.elapsedMs,
-            rewrittenBuffer: rewrittenBuffer,
-            selections: selections,
-            fallbackReason: selections == nil ? "parserFallback" : nil,
-            errorDescription: nil
-        )
-    }
-
-    private func makeInputtingRewritePrompt(context: InputtingRankingContext) -> String {
-        if let editActions = context.editActions {
-            return makeInputtingEditActionPrompt(
-                input: context.composingBuffer,
-                actions: editActions)
-        }
-        return makeGoogleCloudInputtingRewritePrompt(context: context)
-    }
-
-    private func makeInputtingEditActionPrompt(
-        input: String,
-        actions: [LLMEditAction]
-    ) -> String {
-        let actionLines = renderInputtingEditActions(input: input, actions: actions)
-        return """
-            你是台灣繁體中文注音輸入法的選字糾錯引擎。
-            輸入句是輸入法選出的第一版，可能含有少數同音錯字。下面每個 action 都來自輸入法的合法候選路徑。
-            請逐一比較 action 所列出的詞組與「套用後」上下文。如果替換能形成更自然的詞語、固定搭配、專有名稱或完整語意，就選擇該 action。
-            不要把空陣列當成預設答案。只有當所有 actions 都讓原句變差或沒有語言上的改善時，才輸出 []。
-            不可選擇互相重疊的 actions。不要只為文體偏好或網路用語的英文大小寫而修改。
-            如果詞組 action 能完整修正同一個詞，優先選擇詞組 action，不要再選其中重疊的單字 action。
-            只輸出 action ID 的 JSON array，不要解釋或輸出 Markdown。
-
-            輸入法第一版：\(input)
-            Action 數量：\(actions.count)
-
-            Actions:
-            \(actionLines)
-            """
-    }
-
-    private func renderInputtingEditActions(
-        input: String,
-        actions: [LLMEditAction]
-    ) -> String {
-        let inputCharacters = Array(input)
-        return actions.enumerated().compactMap { actionID, action -> String? in
-            guard
-                action.start >= 0,
-                action.end > action.start,
-                action.end <= inputCharacters.count
-            else {
-                return nil
-            }
-            let original = String(inputCharacters[action.start..<action.end])
-            let position =
-                action.end == action.start + 1
-                ? "第 \(action.start + 1) 字"
-                : "第 \(action.start + 1)-\(action.end) 字"
-            var line =
-                "[\(actionID)] \(position)：\(original) -> \(action.replacement)"
-
-            var windows: [String] = []
-            let windowRanges = [
-                (max(0, action.start - 1), action.end),
-                (action.start, min(inputCharacters.count, action.end + 1)),
-                (action.start, min(inputCharacters.count, action.end + 2)),
-            ]
-            for (windowStart, windowEnd) in windowRanges
-            where windowEnd - windowStart > action.end - action.start {
-                let before = Array(inputCharacters[windowStart..<windowEnd])
-                let relativeStart = action.start - windowStart
-                let relativeEnd = action.end - windowStart
-                var after = before
-                after.replaceSubrange(
-                    relativeStart..<relativeEnd,
-                    with: Array(action.replacement))
-                let comparison = "\(String(before)) -> \(String(after))"
-                if !windows.contains(comparison) {
-                    windows.append(comparison)
-                }
-            }
-            if !windows.isEmpty {
-                line += "；詞組比較：\(windows.joined(separator: " | "))"
-            }
-
-            let contextStart = max(0, action.start - 5)
-            let contextEnd = min(inputCharacters.count, action.end + 5)
-            var appliedContext = Array(inputCharacters[contextStart..<contextEnd])
-            appliedContext.replaceSubrange(
-                (action.start - contextStart)..<(action.end - contextStart),
-                with: Array(action.replacement))
-            line += "；套用後：\(String(appliedContext))"
-            return line
-        }.joined(separator: "\n")
-    }
-
-    private func makeGoogleCloudInputtingRewritePrompt(context: InputtingRankingContext) -> String {
-        let segmentLines = context.segments.enumerated().map { index, segment -> String in
-            let candidates = segment.candidates.prefix(Self.cloudPromptCandidateLimitPerSegment).enumerated().map {
-                localIndex, candidate in
-                "[\(localIndex)] \(candidate.value)"
-            }.joined(separator: " | ")
-            return """
-                Segment \(index)
-                - reading: \(segment.reading)
-                - current: \(segment.currentValue)
-                - candidates: \(candidates)
-                """
-        }.joined(separator: "\n")
-
-        return """
-            你是「繁體中文注音輸入法選字糾錯引擎」。
-            任務：修正同音錯字，但只能在輸入法候選內做替換。
-
-            硬性規則（必須遵守）：
-            1) 你必須對每個 Segment 選一個候選詞。
-            2) 只能從該 Segment 的 candidates 清單中選，不可使用清單外字詞。
-            3) 依 Segment 原順序串接，不可調換順序。
-            4) 不可新增字、不可刪字。
-            5) 若不確定，選 current 對應的候選。
-            6) 只輸出最終整句，不要解釋、JSON、Markdown。
-
-            輸入句子：\(context.composingBuffer)
-            Segment 數量：\(context.segments.count)
-
-            Segments:
-            \(segmentLines)
-            """
-    }
-
-    private func parseInputtingEditActionResponse(
-        from text: String,
-        input: String,
-        actions: [LLMEditAction]
-    ) -> (rewrittenBuffer: String, actionIDs: [Int])? {
-        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let candidates = extractJSONArrayCandidates(from: normalized) + [normalized]
-        var checked: Set<String> = []
-        for candidate in candidates where checked.insert(candidate).inserted {
-            guard
-                let data = candidate.data(using: .utf8),
-                let actionIDs = try? JSONDecoder().decode([Int].self, from: data),
-                let rewrittenBuffer = LLMEditActionGenerator.applying(
-                    actionIDs: actionIDs,
-                    to: input,
-                    actions: actions)
-            else {
-                continue
-            }
-            return (rewrittenBuffer, actionIDs)
-        }
-        return nil
-    }
-
-    private func parseInputtingRewrittenBuffer(
-        from text: String,
-        expectedCharacterCount: Int
-    ) -> String? {
-        guard expectedCharacterCount > 0 else {
-            return nil
-        }
-        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        func decodeArray(_ candidate: String) -> [String]? {
-            guard let data = candidate.data(using: .utf8) else {
-                return nil
-            }
-            return try? JSONDecoder().decode([String].self, from: data)
-        }
-
-        let candidates = extractJSONArrayCandidates(from: normalized)
-        for candidate in candidates {
-            guard let array = decodeArray(candidate) else {
-                continue
-            }
-            guard array.count == expectedCharacterCount else {
-                continue
-            }
-            guard array.allSatisfy({ !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) else {
-                continue
-            }
-            guard array.allSatisfy({ $0.count == 1 }) else {
-                continue
-            }
-            let placeholderSet = Set(["字", "X", "x"])
-            if array.allSatisfy({ placeholderSet.contains($0) }) {
-                continue
-            }
-            return array.joined()
-        }
-        var plain = normalized
-        if plain.hasPrefix("```") && plain.hasSuffix("```") {
-            plain = plain.replacingOccurrences(of: "```json", with: "")
-            plain = plain.replacingOccurrences(of: "```", with: "")
-            plain = plain.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        if plain.hasPrefix("\""), plain.hasSuffix("\""), let data = plain.data(using: .utf8),
-            let decoded = try? JSONDecoder().decode(String.self, from: data)
-        {
-            plain = decoded.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        let firstLine = plain
-            .split(whereSeparator: \.isNewline)
-            .first
-            .map(String.init)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? plain
-        if firstLine.count == expectedCharacterCount, !firstLine.isEmpty {
-            return firstLine
-        }
-
-        return nil
-    }
-
-    private func extractJSONArrayCandidates(from text: String) -> [String] {
-        guard !text.isEmpty else {
-            return []
-        }
-        var results: [String] = []
-        var depth = 0
-        var start: String.Index?
-        var inString = false
-        var escaping = false
-
-        for index in text.indices {
-            let ch = text[index]
-
-            if inString {
-                if escaping {
-                    escaping = false
-                    continue
-                }
-                if ch == "\\" {
-                    escaping = true
-                    continue
-                }
-                if ch == "\"" {
-                    inString = false
-                }
-                continue
-            }
-
-            if ch == "\"" {
-                inString = true
-                continue
-            }
-
-            if ch == "[" {
-                if depth == 0 {
-                    start = index
-                }
-                depth += 1
-                continue
-            }
-
-            if ch == "]", depth > 0 {
-                depth -= 1
-                if depth == 0, let startIndex = start {
-                    let end = text.index(after: index)
-                    results.append(String(text[startIndex..<end]))
-                    start = nil
-                }
-            }
-        }
-        if results.isEmpty {
-            results = [text]
-        }
-        return results
-    }
-
-    private func mapRewrittenBufferToSelections(
-        _ rewrittenBuffer: String,
-        segments: [InputtingSegmentContext]
-    ) -> [Int]? {
-        guard !segments.isEmpty else {
-            return nil
-        }
-
-        let originalReading = LanguageModelManager.reading(for: segments.map(\.currentValue).joined())
-        let rewrittenReading = LanguageModelManager.reading(for: rewrittenBuffer)
-        if let originalReading, let rewrittenReading, originalReading != rewrittenReading {
-            return nil
-        }
-
-        let rewrittenNSString = rewrittenBuffer as NSString
-        let totalLength = rewrittenNSString.length
-        var memo: [String: [Int]?] = [:]
-
-        func solve(_ segmentIndex: Int, _ offset: Int) -> [Int]? {
-            let key = "\(segmentIndex)#\(offset)"
-            if let cached = memo[key] {
-                return cached
-            }
-            if segmentIndex == segments.count {
-                let result: [Int]? = (offset == totalLength) ? [] : nil
-                memo[key] = result
-                return result
-            }
-            if offset > totalLength {
-                memo[key] = nil
-                return nil
-            }
-
-            let candidates = segments[segmentIndex].candidates
-            for (candidateIndex, candidate) in candidates.enumerated() {
-                let valueNSString = candidate.value as NSString
-                let valueLength = valueNSString.length
-                if offset + valueLength > totalLength {
-                    continue
-                }
-                let candidateRange = NSRange(location: offset, length: valueLength)
-                let rewrittenSlice = rewrittenNSString.substring(with: candidateRange)
-                if rewrittenSlice != candidate.value {
-                    continue
-                }
-                if let suffix = solve(segmentIndex + 1, offset + valueLength) {
-                    let result = [candidateIndex] + suffix
-                    memo[key] = result
-                    return result
-                }
-            }
-            memo[key] = nil
-            return nil
-        }
-
-        return solve(0, 0)
     }
 
     private func applyCandidateRankingResult(_ result: CandidateRankingResult, client: Any) {
@@ -2001,7 +1612,7 @@ extension McBopomofoInputMethodController {
 
     private func showLLMInputtingRewriteDebugAlertIfNeeded(
         context: InputtingRankingContext,
-        result: InputtingRewriteResponse
+        result: LLMInputtingRewriteResult
     ) {
         guard Preferences.llmShowDebugAlert else {
             return
@@ -2014,7 +1625,7 @@ extension McBopomofoInputMethodController {
         let actionIDsText = result.actionIDs?.map(String.init).joined(separator: ",") ?? "<nil>"
         let editActionsText =
             context.editActions.map {
-                renderInputtingEditActions(
+                LLMInputtingRewriteEngine.renderEditActions(
                     input: context.composingBuffer,
                     actions: $0)
             } ?? "<disabled>"
