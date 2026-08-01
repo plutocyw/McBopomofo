@@ -1447,319 +1447,49 @@ extension McBopomofoInputMethodController {
 
     private func rankWholeInputtingBuffer(context: InputtingRankingContext) -> InputtingRewriteResponse {
         let prompt = makeInputtingRewritePrompt(context: context)
-        let startNs = DispatchTime.now().uptimeNanoseconds
+        let configuration: LLMCloudProviderConfiguration
         switch Preferences.llmCloudProvider {
         case .google:
-            return rankWholeInputtingBufferWithGoogleCloud(
-                prompt: prompt, context: context, startNs: startNs)
-        case .openAI:
-            return rankWholeInputtingBufferWithOpenAI(
-                prompt: prompt, context: context, startNs: startNs)
-        }
-    }
-
-    private func rankWholeInputtingBufferWithGoogleCloud(
-        prompt: String,
-        context: InputtingRankingContext,
-        startNs: UInt64
-    ) -> InputtingRewriteResponse {
-        let provider = "GoogleCloud"
-        let timeout = max(0.05, Double(Preferences.llmCandidateRankingTimeoutMs) / 1000.0)
-        let endpointBase = Preferences.llmGoogleEndpoint.trimmingCharacters(
-            in: .whitespacesAndNewlines)
-        guard !endpointBase.isEmpty else {
-            return InputtingRewriteResponse(
-                provider: provider,
-                prompt: prompt,
-                rawResponse: nil,
-                elapsedMs: 0,
-                rewrittenBuffer: nil,
-                selections: nil,
-                fallbackReason: "emptyCloudEndpoint",
-                errorDescription: nil
-            )
-        }
-        let modelName = LLMCloudAPI.normalizedGoogleModelName(
-            Preferences.llmGoogleModelName)
-        guard !modelName.isEmpty else {
-            return InputtingRewriteResponse(
-                provider: provider,
-                prompt: prompt,
-                rawResponse: nil,
-                elapsedMs: 0,
-                rewrittenBuffer: nil,
-                selections: nil,
-                fallbackReason: "emptyCloudModelName",
-                errorDescription: nil
-            )
-        }
-        let apiKey = Preferences.llmGoogleAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !apiKey.isEmpty else {
-            return InputtingRewriteResponse(
-                provider: provider,
-                prompt: prompt,
-                rawResponse: nil,
-                elapsedMs: 0,
-                rewrittenBuffer: nil,
-                selections: nil,
-                fallbackReason: "emptyGoogleAPIKey",
-                errorDescription: nil
-            )
-        }
-        guard
-            let endpoint = LLMCloudAPI.googleGenerateContentURL(
-                baseEndpoint: endpointBase,
-                modelName: modelName)
-        else {
-            return InputtingRewriteResponse(
-                provider: provider,
-                prompt: prompt,
-                rawResponse: nil,
-                elapsedMs: 0,
-                rewrittenBuffer: nil,
-                selections: nil,
-                fallbackReason: "invalidCloudEndpoint",
-                errorDescription: nil
-            )
-        }
-
-        guard
-            let request = try? LLMCloudAPI.makeGoogleRequest(
-                endpoint: endpoint,
-                modelName: modelName,
-                apiKey: apiKey,
-                prompt: prompt,
+            configuration = .google(
+                baseEndpoint: Preferences.llmGoogleEndpoint,
+                modelName: Preferences.llmGoogleModelName,
+                apiKey: Preferences.llmGoogleAPIKey,
                 thinkingLevel: Preferences.llmGoogleThinkingLevel,
-                editActionCount: context.editActions?.count,
-                timeoutInterval: timeout)
-        else {
-            return InputtingRewriteResponse(
-                provider: provider,
-                prompt: prompt,
-                rawResponse: nil,
-                elapsedMs: 0,
-                rewrittenBuffer: nil,
-                selections: nil,
-                fallbackReason: "jsonEncodeFailed",
-                errorDescription: nil
-            )
+                editActionCount: context.editActions?.count)
+        case .openAI:
+            configuration = .openAI(
+                endpoint: Preferences.llmOpenAIEndpoint,
+                modelName: Preferences.llmOpenAIModelName,
+                apiKey: Preferences.llmOpenAIAPIKey,
+                usesEditActions: context.editActions != nil)
         }
-
-        let transportResult = LLMHTTPTransport.live.send(
-            request,
-            waitTimeout: timeout + 0.05)
-        let elapsedMs = Int((DispatchTime.now().uptimeNanoseconds - startNs) / 1_000_000)
-        let responseData: Data
-        switch transportResult {
-        case .timedOut:
-            return InputtingRewriteResponse(
-                provider: provider,
-                prompt: prompt,
-                rawResponse: nil,
-                elapsedMs: elapsedMs,
-                rewrittenBuffer: nil,
-                selections: nil,
-                fallbackReason: "requestTimeout",
-                errorDescription: nil
-            )
-        case .emptyResponse(let errorDescription):
-            return InputtingRewriteResponse(
-                provider: provider,
-                prompt: prompt,
-                rawResponse: nil,
-                elapsedMs: elapsedMs,
-                rewrittenBuffer: nil,
-                selections: nil,
-                fallbackReason: "emptyResponse",
-                errorDescription: errorDescription
-            )
-        case .success(let data):
-            responseData = data
-        }
-        let rawResponse = String(data: responseData, encoding: .utf8)
-        guard let responseText = LLMCloudAPI.googleResponseText(from: responseData) else {
-            return InputtingRewriteResponse(
-                provider: provider,
-                prompt: prompt,
-                rawResponse: rawResponse,
-                elapsedMs: elapsedMs,
-                rewrittenBuffer: nil,
-                selections: nil,
-                fallbackReason: "invalidJSON",
-                errorDescription: nil
-            )
-        }
-        if let editActions = context.editActions {
-            let parsedActionResult = parseInputtingEditActionResponse(
-                from: responseText,
-                input: context.composingBuffer,
-                actions: editActions)
-            return InputtingRewriteResponse(
-                provider: provider,
-                prompt: prompt,
-                rawResponse: responseText,
-                elapsedMs: elapsedMs,
-                rewrittenBuffer: parsedActionResult?.rewrittenBuffer,
-                selections: nil,
-                actionIDs: parsedActionResult?.actionIDs,
-                fallbackReason: parsedActionResult == nil ? "parserFallback" : nil,
-                errorDescription: nil
-            )
-        }
-        let rewrittenBuffer = parseInputtingRewrittenBuffer(
-            from: responseText,
-            expectedCharacterCount: context.composingBuffer.count
-        )
-        let selections = rewrittenBuffer.flatMap {
-            mapRewrittenBufferToSelections($0, segments: context.segments)
-        }
-        return InputtingRewriteResponse(
-            provider: provider,
-            prompt: prompt,
-            rawResponse: responseText,
-            elapsedMs: elapsedMs,
-            rewrittenBuffer: rewrittenBuffer,
-            selections: selections,
-            fallbackReason: selections == nil ? "parserFallback" : nil,
-            errorDescription: nil
-        )
-    }
-
-    private func rankWholeInputtingBufferWithOpenAI(
-        prompt: String,
-        context: InputtingRankingContext,
-        startNs: UInt64
-    ) -> InputtingRewriteResponse {
-        let provider = "OpenAICloud"
         let timeout = max(0.05, Double(Preferences.llmCandidateRankingTimeoutMs) / 1000.0)
-        let endpointText = Preferences.llmOpenAIEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !endpointText.isEmpty else {
+        let response = LLMCloudClient.live.send(
+            prompt: prompt,
+            configuration: configuration,
+            timeout: timeout)
+        guard let responseText = response.responseText else {
             return InputtingRewriteResponse(
-                provider: provider,
+                provider: response.provider,
                 prompt: prompt,
-                rawResponse: nil,
-                elapsedMs: 0,
+                rawResponse: response.rawResponse,
+                elapsedMs: response.elapsedMs,
                 rewrittenBuffer: nil,
                 selections: nil,
-                fallbackReason: "emptyCloudEndpoint",
-                errorDescription: nil
+                fallbackReason: response.fallbackReason,
+                errorDescription: response.errorDescription
             )
         }
-        let modelName = Preferences.llmOpenAIModelName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !modelName.isEmpty else {
-            return InputtingRewriteResponse(
-                provider: provider,
-                prompt: prompt,
-                rawResponse: nil,
-                elapsedMs: 0,
-                rewrittenBuffer: nil,
-                selections: nil,
-                fallbackReason: "emptyCloudModelName",
-                errorDescription: nil
-            )
-        }
-        let apiKey = Preferences.llmOpenAIAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !apiKey.isEmpty else {
-            return InputtingRewriteResponse(
-                provider: provider,
-                prompt: prompt,
-                rawResponse: nil,
-                elapsedMs: 0,
-                rewrittenBuffer: nil,
-                selections: nil,
-                fallbackReason: "emptyOpenAIAPIKey",
-                errorDescription: nil
-            )
-        }
-        guard let endpoint = URL(string: endpointText) else {
-            return InputtingRewriteResponse(
-                provider: provider,
-                prompt: prompt,
-                rawResponse: nil,
-                elapsedMs: 0,
-                rewrittenBuffer: nil,
-                selections: nil,
-                fallbackReason: "invalidCloudEndpoint",
-                errorDescription: nil
-            )
-        }
-
-        guard
-            let request = try? LLMCloudAPI.makeOpenAIRequest(
-                endpoint: endpoint,
-                modelName: modelName,
-                apiKey: apiKey,
-                prompt: prompt,
-                usesEditActions: context.editActions != nil,
-                timeoutInterval: timeout)
-        else {
-            return InputtingRewriteResponse(
-                provider: provider,
-                prompt: prompt,
-                rawResponse: nil,
-                elapsedMs: 0,
-                rewrittenBuffer: nil,
-                selections: nil,
-                fallbackReason: "jsonEncodeFailed",
-                errorDescription: nil
-            )
-        }
-
-        let transportResult = LLMHTTPTransport.live.send(
-            request,
-            waitTimeout: timeout + 0.05)
-        let elapsedMs = Int((DispatchTime.now().uptimeNanoseconds - startNs) / 1_000_000)
-        let responseData: Data
-        switch transportResult {
-        case .timedOut:
-            return InputtingRewriteResponse(
-                provider: provider,
-                prompt: prompt,
-                rawResponse: nil,
-                elapsedMs: elapsedMs,
-                rewrittenBuffer: nil,
-                selections: nil,
-                fallbackReason: "requestTimeout",
-                errorDescription: nil
-            )
-        case .emptyResponse(let errorDescription):
-            return InputtingRewriteResponse(
-                provider: provider,
-                prompt: prompt,
-                rawResponse: nil,
-                elapsedMs: elapsedMs,
-                rewrittenBuffer: nil,
-                selections: nil,
-                fallbackReason: "emptyResponse",
-                errorDescription: errorDescription
-            )
-        case .success(let data):
-            responseData = data
-        }
-        let rawResponse = String(data: responseData, encoding: .utf8)
-        guard let responseText = LLMCloudAPI.openAIResponseText(from: responseData) else {
-            return InputtingRewriteResponse(
-                provider: provider,
-                prompt: prompt,
-                rawResponse: rawResponse,
-                elapsedMs: elapsedMs,
-                rewrittenBuffer: nil,
-                selections: nil,
-                fallbackReason: "invalidJSON",
-                errorDescription: nil
-            )
-        }
-
         if let editActions = context.editActions {
             let parsedActionResult = parseInputtingEditActionResponse(
                 from: responseText,
                 input: context.composingBuffer,
                 actions: editActions)
             return InputtingRewriteResponse(
-                provider: provider,
+                provider: response.provider,
                 prompt: prompt,
                 rawResponse: responseText,
-                elapsedMs: elapsedMs,
+                elapsedMs: response.elapsedMs,
                 rewrittenBuffer: parsedActionResult?.rewrittenBuffer,
                 selections: nil,
                 actionIDs: parsedActionResult?.actionIDs,
@@ -1775,10 +1505,10 @@ extension McBopomofoInputMethodController {
             mapRewrittenBufferToSelections($0, segments: context.segments)
         }
         return InputtingRewriteResponse(
-            provider: provider,
+            provider: response.provider,
             prompt: prompt,
             rawResponse: responseText,
-            elapsedMs: elapsedMs,
+            elapsedMs: response.elapsedMs,
             rewrittenBuffer: rewrittenBuffer,
             selections: selections,
             fallbackReason: selections == nil ? "parserFallback" : nil,
