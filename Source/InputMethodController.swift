@@ -1463,38 +1463,6 @@ extension McBopomofoInputMethodController {
         context: InputtingRankingContext,
         startNs: UInt64
     ) -> InputtingRewriteResponse {
-        struct GenerateContentRequest: Encodable {
-            struct Content: Encodable {
-                struct Part: Encodable {
-                    let text: String
-                }
-                let parts: [Part]
-            }
-
-            struct SystemInstruction: Encodable {
-                struct Part: Encodable {
-                    let text: String
-                }
-                let parts: [Part]
-            }
-
-            let systemInstruction: SystemInstruction
-            let contents: [Content]
-            let generationConfig: GoogleGenerateContentGenerationConfig
-        }
-        struct GenerateContentResponse: Decodable {
-            struct Candidate: Decodable {
-                struct Content: Decodable {
-                    struct Part: Decodable {
-                        let text: String?
-                    }
-                    let parts: [Part]?
-                }
-                let content: Content?
-            }
-            let candidates: [Candidate]?
-        }
-
         let provider = "GoogleCloud"
         let timeout = max(0.05, Double(Preferences.llmCandidateRankingTimeoutMs) / 1000.0)
         let endpointBase = Preferences.llmGoogleEndpoint.trimmingCharacters(
@@ -1511,7 +1479,8 @@ extension McBopomofoInputMethodController {
                 errorDescription: nil
             )
         }
-        let modelName = normalizeGoogleModelName(Preferences.llmGoogleModelName)
+        let modelName = LLMCloudAPI.normalizedGoogleModelName(
+            Preferences.llmGoogleModelName)
         guard !modelName.isEmpty else {
             return InputtingRewriteResponse(
                 provider: provider,
@@ -1537,7 +1506,11 @@ extension McBopomofoInputMethodController {
                 errorDescription: nil
             )
         }
-        guard let endpoint = makeGoogleGenerateContentURL(baseEndpoint: endpointBase, modelName: modelName) else {
+        guard
+            let endpoint = LLMCloudAPI.googleGenerateContentURL(
+                baseEndpoint: endpointBase,
+                modelName: modelName)
+        else {
             return InputtingRewriteResponse(
                 provider: provider,
                 prompt: prompt,
@@ -1550,23 +1523,16 @@ extension McBopomofoInputMethodController {
             )
         }
 
-        let systemInstruction =
-            context.editActions == nil
-            ? "You are an IME same-pronunciation correction engine. Output the corrected sentence exactly once. The output must have exactly the same character count as the input sentence. Do not repeat, add, or omit any character. Output no analysis, explanation, formatting, or chain-of-thought."
-            : "You are a Traditional Chinese IME correction action selector for Taiwan. Compare every proposed action in its word and sentence context and select every necessary, mutually non-overlapping action. Return an empty array only when every proposed replacement is worse or provides no linguistic improvement. Return only a JSON array of integer action IDs. Do not explain your answer."
-        let body = GenerateContentRequest(
-            systemInstruction: .init(
-                parts: [
-                    .init(text: systemInstruction)
-                ]),
-            contents: [.init(parts: [.init(text: prompt)])],
-            generationConfig: .init(
+        guard
+            let request = try? LLMCloudAPI.makeGoogleRequest(
+                endpoint: endpoint,
                 modelName: modelName,
+                apiKey: apiKey,
+                prompt: prompt,
                 thinkingLevel: Preferences.llmGoogleThinkingLevel,
-                actionCount: context.editActions?.count
-            )
-        )
-        guard let jsonData = try? JSONEncoder().encode(body) else {
+                editActionCount: context.editActions?.count,
+                timeoutInterval: timeout)
+        else {
             return InputtingRewriteResponse(
                 provider: provider,
                 prompt: prompt,
@@ -1578,13 +1544,6 @@ extension McBopomofoInputMethodController {
                 errorDescription: nil
             )
         }
-
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
-        request.httpBody = jsonData
-        request.timeoutInterval = timeout
 
         let semaphore = DispatchSemaphore(value: 0)
         var responseData: Data?
@@ -1622,11 +1581,7 @@ extension McBopomofoInputMethodController {
             )
         }
         let rawResponse = String(data: responseData, encoding: .utf8)
-        guard
-            let parsed = try? JSONDecoder().decode(GenerateContentResponse.self, from: responseData),
-            let candidate = parsed.candidates?.first,
-            let parts = candidate.content?.parts
-        else {
+        guard let responseText = LLMCloudAPI.googleResponseText(from: responseData) else {
             return InputtingRewriteResponse(
                 provider: provider,
                 prompt: prompt,
@@ -1638,7 +1593,6 @@ extension McBopomofoInputMethodController {
                 errorDescription: nil
             )
         }
-        let responseText = parts.compactMap(\.text).joined()
         if let editActions = context.editActions {
             let parsedActionResult = parseInputtingEditActionResponse(
                 from: responseText,
@@ -1680,25 +1634,6 @@ extension McBopomofoInputMethodController {
         context: InputtingRankingContext,
         startNs: UInt64
     ) -> InputtingRewriteResponse {
-        struct ChatCompletionsRequest: Encodable {
-            struct Message: Encodable {
-                let role: String
-                let content: String
-            }
-            let model: String
-            let messages: [Message]
-            let temperature: Double
-        }
-        struct ChatCompletionsResponse: Decodable {
-            struct Choice: Decodable {
-                struct Message: Decodable {
-                    let content: String?
-                }
-                let message: Message
-            }
-            let choices: [Choice]?
-        }
-
         let provider = "OpenAICloud"
         let timeout = max(0.05, Double(Preferences.llmCandidateRankingTimeoutMs) / 1000.0)
         let endpointText = Preferences.llmOpenAIEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1753,19 +1688,15 @@ extension McBopomofoInputMethodController {
             )
         }
 
-        let systemInstruction =
-            context.editActions == nil
-            ? "You are an IME same-pronunciation correction engine. Output only the corrected sentence. Never output analysis or chain-of-thought."
-            : "You are a Traditional Chinese IME correction action selector for Taiwan. Compare every proposed action in its word and sentence context and select every necessary, mutually non-overlapping action. Return an empty array only when every proposed replacement is worse or provides no linguistic improvement. Return only a JSON array of integer action IDs. Do not explain your answer."
-        let body = ChatCompletionsRequest(
-            model: modelName,
-            messages: [
-                .init(role: "system", content: systemInstruction),
-                .init(role: "user", content: prompt),
-            ],
-            temperature: 0
-        )
-        guard let jsonData = try? JSONEncoder().encode(body) else {
+        guard
+            let request = try? LLMCloudAPI.makeOpenAIRequest(
+                endpoint: endpoint,
+                modelName: modelName,
+                apiKey: apiKey,
+                prompt: prompt,
+                usesEditActions: context.editActions != nil,
+                timeoutInterval: timeout)
+        else {
             return InputtingRewriteResponse(
                 provider: provider,
                 prompt: prompt,
@@ -1777,13 +1708,6 @@ extension McBopomofoInputMethodController {
                 errorDescription: nil
             )
         }
-
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.httpBody = jsonData
-        request.timeoutInterval = timeout
 
         let semaphore = DispatchSemaphore(value: 0)
         var responseData: Data?
@@ -1821,10 +1745,7 @@ extension McBopomofoInputMethodController {
             )
         }
         let rawResponse = String(data: responseData, encoding: .utf8)
-        guard
-            let parsed = try? JSONDecoder().decode(ChatCompletionsResponse.self, from: responseData),
-            let responseText = parsed.choices?.first?.message.content
-        else {
+        guard let responseText = LLMCloudAPI.openAIResponseText(from: responseData) else {
             return InputtingRewriteResponse(
                 provider: provider,
                 prompt: prompt,
@@ -1871,22 +1792,6 @@ extension McBopomofoInputMethodController {
             fallbackReason: selections == nil ? "parserFallback" : nil,
             errorDescription: nil
         )
-    }
-
-    private func normalizeGoogleModelName(_ raw: String) -> String {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else {
-            return ""
-        }
-        if trimmed.hasPrefix("models/") {
-            return String(trimmed.dropFirst("models/".count))
-        }
-        return trimmed
-    }
-
-    private func makeGoogleGenerateContentURL(baseEndpoint: String, modelName: String) -> URL? {
-        let trimmedBase = baseEndpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        return URL(string: "\(trimmedBase)/models/\(modelName):generateContent")
     }
 
     private func makeInputtingRewritePrompt(context: InputtingRankingContext) -> String {
