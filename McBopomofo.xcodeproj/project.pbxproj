@@ -118,6 +118,7 @@
 		E002A1BF2F10000600AAA001 /* LLMCloudClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1BE2F10000600AAA001 /* LLMCloudClientTests.swift */; };
 		E002A1C12F10000700AAA001 /* LLMInputtingRewriteEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1C02F10000700AAA001 /* LLMInputtingRewriteEngine.swift */; };
 		E002A1C32F10000800AAA001 /* LLMInputtingRewriteEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1C22F10000800AAA001 /* LLMInputtingRewriteEngineTests.swift */; };
+		E002A1C52F10000900AAA001 /* InputMethodController+LLM.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1C42F10000900AAA001 /* InputMethodController+LLM.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -294,6 +295,7 @@
 		E002A1BE2F10000600AAA001 /* LLMCloudClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMCloudClientTests.swift; sourceTree = "<group>"; };
 		E002A1C02F10000700AAA001 /* LLMInputtingRewriteEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMInputtingRewriteEngine.swift; sourceTree = "<group>"; };
 		E002A1C22F10000800AAA001 /* LLMInputtingRewriteEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMInputtingRewriteEngineTests.swift; sourceTree = "<group>"; };
+		E002A1C42F10000900AAA001 /* InputMethodController+LLM.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "InputMethodController+LLM.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -590,6 +592,7 @@
 			isa = PBXGroup;
 			children = (
 				E002A1B22F10000000AAA001 /* GoogleGenerateContentConfiguration.swift */,
+				E002A1C42F10000900AAA001 /* InputMethodController+LLM.swift */,
 				E002A1B62F10000200AAA001 /* LLMCloudAPI.swift */,
 				E002A1BC2F10000500AAA001 /* LLMCloudClient.swift */,
 				E002A1B42F10000100AAA001 /* LLMEditAction.swift */,
@@ -827,6 +830,7 @@
 				E002A1B72F10000200AAA001 /* LLMCloudAPI.swift in Sources */,
 				E002A1BD2F10000500AAA001 /* LLMCloudClient.swift in Sources */,
 				E002A1B92F10000300AAA001 /* LLMHTTPTransport.swift in Sources */,
+				E002A1C52F10000900AAA001 /* InputMethodController+LLM.swift in Sources */,
 				E002A1C12F10000700AAA001 /* LLMInputtingRewriteEngine.swift in Sources */,
 				D4E569DC27A34D0E00AC2CEF /* KeyHandler.mm in Sources */,
 				6A4F5F982879E838008C4307 /* reading_grid.cpp in Sources */,
