@@ -79,6 +79,14 @@ if CommandLine.arguments.count > 1 {
     }
 }
 
+let processVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+    ?? "unknown"
+let processBuild = Bundle.main.object(forInfoDictionaryKey: kCFBundleVersionKey as String) as? String
+    ?? "unknown"
+InputMethodDiagnostics.log(
+    "process_launch",
+    detail: "version=\(processVersion) build=\(processBuild) os=\(ProcessInfo.processInfo.operatingSystemVersionString)")
+
 guard let mainNibName = Bundle.main.infoDictionary?["NSMainNibFile"] as? String else {
     NSLog("Fatal error: NSMainNibFile key not defined in Info.plist.");
     exit(-1)
@@ -91,9 +99,14 @@ if !loaded {
 }
 
 guard let bundleID = Bundle.main.bundleIdentifier, let server = IMKServer(name: kConnectionName, bundleIdentifier: bundleID) else {
+    InputMethodDiagnostics.error(
+        "server_init_failed", detail: "connection=\(kConnectionName)")
     NSLog("Fatal error: Cannot initialize input method server with connection \(kConnectionName).")
     exit(-1)
 }
 
+InputMethodDiagnostics.log("server_init_end", detail: "connection=\(kConnectionName)")
 Preferences.populateDefaults()
+InputMethodDiagnostics.log("application_run_begin")
 NSApp.run()
+InputMethodDiagnostics.log("application_run_end")

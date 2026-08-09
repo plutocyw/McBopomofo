@@ -33,6 +33,9 @@ private let kTargetFullBinPartialPath = "~/Library/Input Methods/McBopomofo.app/
 
 private let kTranslocationRemovalTickInterval: TimeInterval = 0.5
 private let kTranslocationRemovalDeadline: TimeInterval = 60.0
+private let kInputMethodTerminationPollInterval: TimeInterval = 0.1
+private let kInputMethodGracefulTerminationDeadline: TimeInterval = 3.0
+private let kInputMethodForcedTerminationDeadline: TimeInterval = 2.0
 
 @NSApplicationMain
 @objc(AppDelegate)
@@ -134,8 +137,16 @@ class AppDelegate: NSWindowController, NSApplicationDelegate {
     }
 
     func removeThenInstallInputMethod() {
+        guard let targetBundle = installableInputMethodPath() else {
+            presentMissingInstallablePackageError()
+            return
+        }
+
         if FileManager.default.fileExists(atPath: (kTargetPartialPath as NSString).expandingTildeInPath) == false {
-            self.installInputMethod(previousExists: false, previousVersionNotFullyDeactivatedWarning: false)
+            installInputMethod(
+                from: targetBundle,
+                previousExists: false,
+                previousVersionNotFullyDeactivatedWarning: false)
             return
         }
 
@@ -154,52 +165,165 @@ class AppDelegate: NSWindowController, NSApplicationDelegate {
                 return
             }
 
-            let killTask = Process()
-            killTask.launchPath = "/usr/bin/killall"
-            killTask.arguments = ["-9", kTargetBin]
-            killTask.launch()
-            killTask.waitUntilExit()
+            // Keep the existing server alive until the replacement bundle is back at its
+            // registered path. Otherwise clients can try to reconnect while the bundle is
+            // absent and retain a failed InputMethodKit session until they restart.
+            guard self.copyInputMethod(from: targetBundle) else {
+                self.presentCopyFailure()
+                return
+            }
+            NSLog("The replacement input method bundle is in place before process termination.")
 
-            if shouldWaitForTranslocationRemoval {
-                progressIndicator.startAnimation(self)
-                window?.beginSheet(progressSheet) { returnCode in
-                    DispatchQueue.main.async {
-                        if returnCode == .continue {
-                            self.installInputMethod(previousExists: true, previousVersionNotFullyDeactivatedWarning: false)
-                        } else {
-                            self.installInputMethod(previousExists: true, previousVersionNotFullyDeactivatedWarning: true)
-                        }
-                    }
-                }
-
-                translocationRemovalStartTime = Date()
-                Timer.scheduledTimer(timeInterval: kTranslocationRemovalTickInterval, target: self, selector: #selector(timerTick(_:)), userInfo: nil, repeats: true)
-            } else {
-                self.installInputMethod(previousExists: false, previousVersionNotFullyDeactivatedWarning: false)
+            self.terminatePreviousInputMethod { previousVersionFullyDeactivated in
+                self.finishReplacement(
+                    shouldWaitForTranslocationRemoval: shouldWaitForTranslocationRemoval,
+                    previousVersionFullyDeactivated: previousVersionFullyDeactivated)
             }
         }
     }
 
-    func installInputMethod(previousExists: Bool, previousVersionNotFullyDeactivatedWarning warning: Bool) {
-        guard let targetBundle = archiveUtil?.unzipNotarizedArchive() ?? Bundle.main.path(forResource: kTargetBin, ofType: kTargetType) else {
-            let message = NSLocalizedString("No installable packagess found.", comment: "")
-            runAlertPanel(title: NSLocalizedString("Fatal Error", comment: ""), message: message, buttonTitle: NSLocalizedString("Abort", comment: ""))
-            endAppWithDelay()
-            return
-        }
+    private func installableInputMethodPath() -> String? {
+        archiveUtil?.unzipNotarizedArchive()
+            ?? Bundle.main.path(forResource: kTargetBin, ofType: kTargetType)
+    }
+
+    private func presentMissingInstallablePackageError() {
+        let message = NSLocalizedString("No installable packagess found.", comment: "")
+        runAlertPanel(
+            title: NSLocalizedString("Fatal Error", comment: ""),
+            message: message,
+            buttonTitle: NSLocalizedString("Abort", comment: ""))
+        endAppWithDelay()
+    }
+
+    private func presentCopyFailure() {
+        runAlertPanel(
+            title: NSLocalizedString("Install Failed", comment: ""),
+            message: NSLocalizedString("Cannot copy the file to the destination.", comment: ""),
+            buttonTitle: NSLocalizedString("Cancel", comment: ""))
+        endAppWithDelay()
+    }
+
+    private func copyInputMethod(from targetBundle: String) -> Bool {
         let cpTask = Process()
         cpTask.launchPath = "/bin/cp"
         cpTask.arguments = ["-R", targetBundle, (kDestinationPartial as NSString).expandingTildeInPath]
         cpTask.launch()
         cpTask.waitUntilExit()
+        return cpTask.terminationStatus == 0
+    }
 
-        if cpTask.terminationStatus != 0 {
-            runAlertPanel(title: NSLocalizedString("Install Failed", comment: ""),
-                          message: NSLocalizedString("Cannot copy the file to the destination.", comment: ""),
-                          buttonTitle: NSLocalizedString("Cancel", comment: ""))
-            endAppWithDelay()
+    private func installInputMethod(
+        from targetBundle: String,
+        previousExists: Bool,
+        previousVersionNotFullyDeactivatedWarning warning: Bool
+    ) {
+        guard copyInputMethod(from: targetBundle) else {
+            presentCopyFailure()
             return
         }
+
+        finishInstallingInputMethod(
+            previousExists: previousExists,
+            previousVersionNotFullyDeactivatedWarning: warning)
+    }
+
+    private func finishReplacement(
+        shouldWaitForTranslocationRemoval: Bool,
+        previousVersionFullyDeactivated: Bool
+    ) {
+        if shouldWaitForTranslocationRemoval {
+            progressIndicator.startAnimation(self)
+            window?.beginSheet(progressSheet) { returnCode in
+                DispatchQueue.main.async {
+                    self.finishInstallingInputMethod(
+                        previousExists: true,
+                        previousVersionNotFullyDeactivatedWarning:
+                            returnCode != .continue || !previousVersionFullyDeactivated)
+                }
+            }
+
+            translocationRemovalStartTime = Date()
+            Timer.scheduledTimer(
+                timeInterval: kTranslocationRemovalTickInterval,
+                target: self,
+                selector: #selector(timerTick(_:)),
+                userInfo: nil,
+                repeats: true)
+        } else {
+            finishInstallingInputMethod(
+                previousExists: true,
+                previousVersionNotFullyDeactivatedWarning: !previousVersionFullyDeactivated)
+        }
+    }
+
+    private func terminatePreviousInputMethod(completion: @escaping (Bool) -> Void) {
+        guard let installedBundle = Bundle(path: (kTargetPartialPath as NSString).expandingTildeInPath),
+              let bundleIdentifier = installedBundle.bundleIdentifier else {
+            NSLog("Cannot determine the installed input method bundle identifier.")
+            completion(false)
+            return
+        }
+
+        let runningApplications = NSRunningApplication.runningApplications(
+            withBundleIdentifier: bundleIdentifier)
+        guard !runningApplications.isEmpty else {
+            NSLog("No running input method process needs to be terminated.")
+            completion(true)
+            return
+        }
+
+        NSLog("Requesting normal termination of the previous input method process.")
+        for application in runningApplications {
+            _ = application.terminate()
+        }
+
+        waitForTermination(
+            of: runningApplications,
+            deadline: Date().addingTimeInterval(kInputMethodGracefulTerminationDeadline)
+        ) { [self] gracefullyTerminated in
+            if gracefullyTerminated {
+                NSLog("The previous input method process terminated normally.")
+                completion(true)
+                return
+            }
+
+            let remainingApplications = runningApplications.filter { !$0.isTerminated }
+            NSLog("Normal termination timed out; forcing the remaining input method process to terminate.")
+            for application in remainingApplications {
+                _ = application.forceTerminate()
+            }
+
+            waitForTermination(
+                of: remainingApplications,
+                deadline: Date().addingTimeInterval(kInputMethodForcedTerminationDeadline),
+                completion: completion)
+        }
+    }
+
+    private func waitForTermination(
+        of applications: [NSRunningApplication],
+        deadline: Date,
+        completion: @escaping (Bool) -> Void
+    ) {
+        if applications.allSatisfy(\.isTerminated) {
+            completion(true)
+            return
+        }
+        guard Date() < deadline else {
+            completion(false)
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + kInputMethodTerminationPollInterval) { [self] in
+            waitForTermination(of: applications, deadline: deadline, completion: completion)
+        }
+    }
+
+    private func finishInstallingInputMethod(
+        previousExists: Bool,
+        previousVersionNotFullyDeactivatedWarning warning: Bool
+    ) {
 
         guard let imeBundle = Bundle(path: (kTargetPartialPath as NSString).expandingTildeInPath),
               let imeIdentifier = imeBundle.bundleIdentifier

@@ -172,6 +172,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NonModalAlertWindowControlle
     private var serviceProviderHelper = ServiceProviderInputHelper()
 
     func updateUserPhrases() {
+        let start = ProcessInfo.processInfo.systemUptime
+        InputMethodDiagnostics.log("user_phrases_reload_begin")
+        defer {
+            InputMethodDiagnostics.log(
+                "user_phrases_reload_end",
+                durationMilliseconds: InputMethodDiagnostics.elapsedMilliseconds(since: start))
+        }
         LanguageModelManager.loadUserPhrases(
             enableForPlainBopomofo: Preferences.enableUserPhrasesInPlainBopomofo)
         LanguageModelManager.loadUserPhraseReplacement()
@@ -185,6 +192,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NonModalAlertWindowControlle
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        let start = ProcessInfo.processInfo.systemUptime
+        InputMethodDiagnostics.log("application_launch_begin")
+        defer {
+            InputMethodDiagnostics.log(
+                "application_launch_end",
+                durationMilliseconds: InputMethodDiagnostics.elapsedMilliseconds(since: start))
+        }
         LanguageModelManager.setupDataModelValueConverter()
         updateUserPhrases()
 
@@ -214,6 +228,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NonModalAlertWindowControlle
 
     @MainActor
     @objc func showPreferences() {
+        let start = ProcessInfo.processInfo.systemUptime
+        InputMethodDiagnostics.log("preferences_show_begin")
+        defer {
+            InputMethodDiagnostics.log(
+                "preferences_show_end",
+                durationMilliseconds: InputMethodDiagnostics.elapsedMilliseconds(since: start))
+        }
         if preferencesWindowController == nil {
             preferencesWindowController = PreferencesWindowController()
         }
