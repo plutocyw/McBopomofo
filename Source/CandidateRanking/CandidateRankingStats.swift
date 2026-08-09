@@ -30,6 +30,13 @@ enum CandidateRankingStatsEvent {
     case timeoutFallback
     case invalidResultFallback
     case parserFallback
+    case localMemoryHit
+    case localMemoryMiss
+    case correctionAccepted
+    case correctionRejected
+    case memoryPromotion
+    case memoryDemotion
+    case postHitManualReversal
 }
 
 struct CandidateRankingStatsSnapshot: Equatable {
@@ -39,6 +46,13 @@ struct CandidateRankingStatsSnapshot: Equatable {
     var timeoutFallback: Int = 0
     var invalidResultFallback: Int = 0
     var parserFallback: Int = 0
+    var localMemoryHit: Int = 0
+    var localMemoryMiss: Int = 0
+    var correctionAccepted: Int = 0
+    var correctionRejected: Int = 0
+    var memoryPromotion: Int = 0
+    var memoryDemotion: Int = 0
+    var postHitManualReversal: Int = 0
 }
 
 enum CandidateRankingStats {
@@ -64,6 +78,20 @@ enum CandidateRankingStats {
             snapshot.invalidResultFallback += 1
         case .parserFallback:
             snapshot.parserFallback += 1
+        case .localMemoryHit:
+            snapshot.localMemoryHit += 1
+        case .localMemoryMiss:
+            snapshot.localMemoryMiss += 1
+        case .correctionAccepted:
+            snapshot.correctionAccepted += 1
+        case .correctionRejected:
+            snapshot.correctionRejected += 1
+        case .memoryPromotion:
+            snapshot.memoryPromotion += 1
+        case .memoryDemotion:
+            snapshot.memoryDemotion += 1
+        case .postHitManualReversal:
+            snapshot.postHitManualReversal += 1
         }
         if shouldReport {
             reportSnapshot = snapshot
@@ -72,13 +100,20 @@ enum CandidateRankingStats {
 
         if shouldReport {
             NSLog(
-                "CandidateRankingStats scheduled=%d applied=%d staleDropped=%d timeoutFallback=%d invalidResultFallback=%d parserFallback=%d",
+                "CandidateRankingStats scheduled=%d applied=%d staleDropped=%d timeoutFallback=%d invalidResultFallback=%d parserFallback=%d localMemoryHit=%d localMemoryMiss=%d correctionAccepted=%d correctionRejected=%d memoryPromotion=%d memoryDemotion=%d postHitManualReversal=%d",
                 reportSnapshot.scheduled,
                 reportSnapshot.applied,
                 reportSnapshot.staleDropped,
                 reportSnapshot.timeoutFallback,
                 reportSnapshot.invalidResultFallback,
-                reportSnapshot.parserFallback
+                reportSnapshot.parserFallback,
+                reportSnapshot.localMemoryHit,
+                reportSnapshot.localMemoryMiss,
+                reportSnapshot.correctionAccepted,
+                reportSnapshot.correctionRejected,
+                reportSnapshot.memoryPromotion,
+                reportSnapshot.memoryDemotion,
+                reportSnapshot.postHitManualReversal
             )
         }
     }

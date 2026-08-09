@@ -63,6 +63,8 @@ extension McBopomofoInputMethodController: CandidateControllerDelegate {
             guard let inputting = keyHandler.buildInputtingState() as? InputState.Inputting else {
                 return
             }
+            llmCorrectionFeedbackCoordinator.recordExplicitUserBuffer(
+                inputting.composingBuffer)
 
             switch keyHandler.inputMode {
             case .plainBopomofo:

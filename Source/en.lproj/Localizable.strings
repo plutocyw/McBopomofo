@@ -159,6 +159,27 @@
 
 "Use LLM Candidate Ranking" = "Use Cloud LLM Buffer Correction";
 "Use Edit-Action Reranking (Experimental)" = "Use Edit-Action Reranking (Experimental)";
+"Use LLM Correction Memory" = "Use LLM Correction Memory";
+"Save LLM Correction Memory" = "Save LLM Correction Memory";
+"Learn from Accepted LLM Corrections" = "Learn from Accepted LLM Corrections";
+"Turn off memory reads to test raw LLM correction behavior. Turn off memory writes to keep tests from changing future results." = "Turn off memory reads to test raw LLM correction behavior. Turn off memory writes to keep tests from changing future results.";
+"Clear LLM Correction Memory" = "Clear LLM Correction Memory";
+"Clear LLM Correction Memory?" = "Clear LLM Correction Memory?";
+"This clears only corrections learned from accepted LLM results. Manual user phrases are preserved." = "This clears only corrections learned from accepted LLM results. Manual user phrases are preserved.";
+"Clearing LLM correction memory does not remove manual user phrases." = "Clearing LLM correction memory does not remove manual user phrases.";
+"Memory Tuning (Testing)" = "Memory Tuning (Testing)";
+"Local Application Confidence" = "Local Application Confidence";
+"Short-Term Half-Life" = "Short-Term Half-Life";
+"Short-Term Maximum Age" = "Short-Term Maximum Age";
+"Long-Term Half-Life" = "Long-Term Half-Life";
+"Long-Term Maximum Age" = "Long-Term Maximum Age";
+"Minimum Acceptances for Long-Term" = "Minimum Acceptances for Long-Term";
+"Minimum Sessions for Long-Term" = "Minimum Sessions for Long-Term";
+"Minimum Acceptance Ratio" = "Minimum Acceptance Ratio";
+"Memory tuning changes apply immediately to the next lookup or observation." = "Memory tuning changes apply immediately to the next lookup or observation.";
+"Restore Memory Tuning Defaults" = "Restore Memory Tuning Defaults";
+" min" = " min";
+" days" = " days";
 
 "Auto-preselect top ranked candidate" = "Auto-preselect top ranked candidate";
 

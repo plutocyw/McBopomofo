@@ -159,6 +159,27 @@
 
 "Use LLM Candidate Ranking" = "使用雲端 LLM 進行輸入緩衝校正";
 "Use Edit-Action Reranking (Experimental)" = "使用編輯動作重新排序（實驗性）";
+"Use LLM Correction Memory" = "使用 LLM 校正記憶";
+"Save LLM Correction Memory" = "儲存 LLM 校正記憶";
+"Learn from Accepted LLM Corrections" = "學習已接受的 LLM 校正";
+"Turn off memory reads to test raw LLM correction behavior. Turn off memory writes to keep tests from changing future results." = "關閉記憶讀取可測試未受記憶影響的 LLM 校正；關閉記憶寫入可避免測試改變之後的結果。";
+"Clear LLM Correction Memory" = "清除 LLM 校正記憶";
+"Clear LLM Correction Memory?" = "要清除 LLM 校正記憶嗎？";
+"This clears only corrections learned from accepted LLM results. Manual user phrases are preserved." = "這只會清除從已接受 LLM 結果學到的校正，並保留手動使用者詞彙。";
+"Clearing LLM correction memory does not remove manual user phrases." = "清除 LLM 校正記憶不會移除手動使用者詞彙。";
+"Memory Tuning (Testing)" = "記憶參數調整（測試）";
+"Local Application Confidence" = "本地套用信心門檻";
+"Short-Term Half-Life" = "短期記憶半衰期";
+"Short-Term Maximum Age" = "短期記憶最長效期";
+"Long-Term Half-Life" = "長期記憶半衰期";
+"Long-Term Maximum Age" = "長期記憶最長效期";
+"Minimum Acceptances for Long-Term" = "長期記憶最低接受次數";
+"Minimum Sessions for Long-Term" = "長期記憶最低工作階段數";
+"Minimum Acceptance Ratio" = "最低接受率";
+"Memory tuning changes apply immediately to the next lookup or observation." = "參數修改會在下一次記憶查詢或觀察時立即生效。";
+"Restore Memory Tuning Defaults" = "還原記憶參數預設值";
+" min" = " 分鐘";
+" days" = " 天";
 
 "Auto-preselect top ranked candidate" = "自動預選並提交第一名候選詞";
 

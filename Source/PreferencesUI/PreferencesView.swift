@@ -700,6 +700,7 @@ private struct AdvancedPreferencesView: View {
 
 private struct LLMPreferencesView: View {
     @EnvironmentObject private var preferences: PreferencesViewModel
+    @State private var memoryTuningExpanded = false
 
     var body: some View {
         FormBody {
@@ -802,6 +803,111 @@ private struct LLMPreferencesView: View {
                 }
             }
 
+            Divider()
+                .padding(.vertical, 5)
+
+            PreferenceRow {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle(
+                        localized("Use LLM Correction Memory"),
+                        isOn: $preferences.llmCorrectionMemoryReadsEnabled)
+                    Toggle(
+                        localized("Save LLM Correction Memory"),
+                        isOn: $preferences.llmCorrectionMemoryWritesEnabled)
+                    Toggle(
+                        localized("Learn from Accepted LLM Corrections"),
+                        isOn: $preferences.llmCorrectionLearningEnabled)
+                        .disabled(!preferences.llmCorrectionMemoryWritesEnabled)
+
+                    Text(
+                        localized(
+                            "Turn off memory reads to test raw LLM correction behavior. Turn off memory writes to keep tests from changing future results."
+                        )
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                    DisclosureGroup(isExpanded: $memoryTuningExpanded) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            MemoryTuningRow(
+                                localized("Local Application Confidence"),
+                                value: $preferences.llmCorrectionMinimumConfidencePercent,
+                                range: 0...100,
+                                step: 5,
+                                suffix: "%")
+                            MemoryTuningRow(
+                                localized("Short-Term Half-Life"),
+                                value: $preferences.llmCorrectionShortTermHalfLifeMinutes,
+                                range: 1...10_080,
+                                step: 5,
+                                suffix: localized(" min"))
+                            MemoryTuningRow(
+                                localized("Short-Term Maximum Age"),
+                                value: $preferences.llmCorrectionShortTermMaximumAgeMinutes,
+                                range: 1...43_200,
+                                step: 5,
+                                suffix: localized(" min"))
+                            MemoryTuningRow(
+                                localized("Long-Term Half-Life"),
+                                value: $preferences.llmCorrectionLongTermHalfLifeDays,
+                                range: 1...3_650,
+                                step: 5,
+                                suffix: localized(" days"))
+                            MemoryTuningRow(
+                                localized("Long-Term Maximum Age"),
+                                value: $preferences.llmCorrectionLongTermMaximumAgeDays,
+                                range: 1...3_650,
+                                step: 5,
+                                suffix: localized(" days"))
+                            MemoryTuningRow(
+                                localized("Minimum Acceptances for Long-Term"),
+                                value: $preferences.llmCorrectionLongTermMinimumAcceptances,
+                                range: 1...100)
+                            MemoryTuningRow(
+                                localized("Minimum Sessions for Long-Term"),
+                                value: $preferences.llmCorrectionLongTermMinimumSessions,
+                                range: 1...20)
+                            MemoryTuningRow(
+                                localized("Minimum Acceptance Ratio"),
+                                value: $preferences.llmCorrectionMinimumAcceptanceRatioPercent,
+                                range: 0...100,
+                                step: 5,
+                                suffix: "%")
+
+                            Text(
+                                localized(
+                                    "Memory tuning changes apply immediately to the next lookup or observation."
+                                )
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                            Button(localized("Restore Memory Tuning Defaults")) {
+                                preferences.resetLLMCorrectionMemoryTuningDefaults()
+                            }
+                        }
+                        .padding(.top, 6)
+                    } label: {
+                        Text(localized("Memory Tuning (Testing)"))
+                    }
+
+                    Button(localized("Clear LLM Correction Memory")) {
+                        preferences.confirmAndClearLLMCorrectionMemory()
+                    }
+
+                    Text(
+                        localized(
+                            "Clearing LLM correction memory does not remove manual user phrases."
+                        )
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
             PreferenceRow {
                 VStack(alignment: .leading, spacing: 8) {
                     Toggle(
@@ -812,6 +918,41 @@ private struct LLMPreferencesView: View {
                         isOn: $preferences.llmShowDebugAlert)
                 }
             }
+        }
+    }
+}
+
+private struct MemoryTuningRow: View {
+    let title: String
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    let step: Int
+    let suffix: String
+
+    init(
+        _ title: String,
+        value: Binding<Int>,
+        range: ClosedRange<Int>,
+        step: Int = 1,
+        suffix: String = ""
+    ) {
+        self.title = title
+        _value = value
+        self.range = range
+        self.step = step
+        self.suffix = suffix
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(title)
+            Spacer(minLength: 8)
+            Stepper(value: $value, in: range, step: step) {
+                Text("\(value)\(suffix)")
+                    .monospacedDigit()
+                    .frame(minWidth: 72, alignment: .trailing)
+            }
+            .fixedSize()
         }
     }
 }

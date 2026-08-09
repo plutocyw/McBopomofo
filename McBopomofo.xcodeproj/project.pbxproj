@@ -119,6 +119,16 @@
 		E002A1C12F10000700AAA001 /* LLMInputtingRewriteEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1C02F10000700AAA001 /* LLMInputtingRewriteEngine.swift */; };
 		E002A1C32F10000800AAA001 /* LLMInputtingRewriteEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1C22F10000800AAA001 /* LLMInputtingRewriteEngineTests.swift */; };
 		E002A1C52F10000900AAA001 /* InputMethodController+LLM.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1C42F10000900AAA001 /* InputMethodController+LLM.swift */; };
+		E002A1D12F10000A00AAA001 /* LLMCorrectionTransaction.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1D02F10000A00AAA001 /* LLMCorrectionTransaction.swift */; };
+		E002A1D32F10000B00AAA001 /* LLMCorrectionTransactionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1D22F10000B00AAA001 /* LLMCorrectionTransactionTests.swift */; };
+		E002A1D52F10000C00AAA001 /* LLMCorrectionFeedbackCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1D42F10000C00AAA001 /* LLMCorrectionFeedbackCoordinator.swift */; };
+		E002A1D72F10000D00AAA001 /* LLMCorrectionFeedbackCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1D62F10000D00AAA001 /* LLMCorrectionFeedbackCoordinatorTests.swift */; };
+		E002A1D92F10000E00AAA001 /* LLMCorrectionEvidenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1D82F10000E00AAA001 /* LLMCorrectionEvidenceStore.swift */; };
+		E002A1DB2F10000F00AAA001 /* LLMCorrectionEvidenceStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1DA2F10000F00AAA001 /* LLMCorrectionEvidenceStoreTests.swift */; };
+		E002A1DD2F10001000AAA001 /* UserAdaptationBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1DC2F10001000AAA001 /* UserAdaptationBackend.swift */; };
+		E002A1DF2F10001100AAA001 /* UserAdaptationBackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1DE2F10001100AAA001 /* UserAdaptationBackendTests.swift */; };
+		E002A1E12F10001200AAA001 /* EvidenceBasedUserAdaptationBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1E02F10001200AAA001 /* EvidenceBasedUserAdaptationBackend.swift */; };
+		E002A1E32F10001300AAA001 /* EvidenceBasedUserAdaptationBackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E002A1E22F10001300AAA001 /* EvidenceBasedUserAdaptationBackendTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -296,6 +306,16 @@
 		E002A1C02F10000700AAA001 /* LLMInputtingRewriteEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMInputtingRewriteEngine.swift; sourceTree = "<group>"; };
 		E002A1C22F10000800AAA001 /* LLMInputtingRewriteEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMInputtingRewriteEngineTests.swift; sourceTree = "<group>"; };
 		E002A1C42F10000900AAA001 /* InputMethodController+LLM.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "InputMethodController+LLM.swift"; sourceTree = "<group>"; };
+		E002A1D02F10000A00AAA001 /* LLMCorrectionTransaction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMCorrectionTransaction.swift; sourceTree = "<group>"; };
+		E002A1D22F10000B00AAA001 /* LLMCorrectionTransactionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMCorrectionTransactionTests.swift; sourceTree = "<group>"; };
+		E002A1D42F10000C00AAA001 /* LLMCorrectionFeedbackCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMCorrectionFeedbackCoordinator.swift; sourceTree = "<group>"; };
+		E002A1D62F10000D00AAA001 /* LLMCorrectionFeedbackCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMCorrectionFeedbackCoordinatorTests.swift; sourceTree = "<group>"; };
+		E002A1D82F10000E00AAA001 /* LLMCorrectionEvidenceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMCorrectionEvidenceStore.swift; sourceTree = "<group>"; };
+		E002A1DA2F10000F00AAA001 /* LLMCorrectionEvidenceStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMCorrectionEvidenceStoreTests.swift; sourceTree = "<group>"; };
+		E002A1DC2F10001000AAA001 /* UserAdaptationBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserAdaptationBackend.swift; sourceTree = "<group>"; };
+		E002A1DE2F10001100AAA001 /* UserAdaptationBackendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserAdaptationBackendTests.swift; sourceTree = "<group>"; };
+		E002A1E02F10001200AAA001 /* EvidenceBasedUserAdaptationBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceBasedUserAdaptationBackend.swift; sourceTree = "<group>"; };
+		E002A1E22F10001300AAA001 /* EvidenceBasedUserAdaptationBackendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvidenceBasedUserAdaptationBackendTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -556,9 +576,14 @@
 			isa = PBXGroup;
 			children = (
 				E001A1B82F00100300AAA001 /* CandidateRankingTests.swift */,
+				E002A1E22F10001300AAA001 /* EvidenceBasedUserAdaptationBackendTests.swift */,
+				E002A1DA2F10000F00AAA001 /* LLMCorrectionEvidenceStoreTests.swift */,
+				E002A1D62F10000D00AAA001 /* LLMCorrectionFeedbackCoordinatorTests.swift */,
+				E002A1D22F10000B00AAA001 /* LLMCorrectionTransactionTests.swift */,
 				E002A1BE2F10000600AAA001 /* LLMCloudClientTests.swift */,
 				E002A1C22F10000800AAA001 /* LLMInputtingRewriteEngineTests.swift */,
 				E002A1BA2F10000400AAA001 /* LLMHTTPTransportTests.swift */,
+				E002A1DE2F10001100AAA001 /* UserAdaptationBackendTests.swift */,
 				D436E23E2CD20B9E00C6155D /* AssociatedPhrasesTests.swift */,
 				D47D73A327A5D43900255A50 /* KeyHandlerBopomofoTests.swift */,
 				D4A8E43527A9E982002F7A07 /* KeyHandlerPlainBopomofoTests.swift */,
@@ -591,13 +616,18 @@
 		E002A1B12F10000000AAA001 /* LLM */ = {
 			isa = PBXGroup;
 			children = (
+				E002A1E02F10001200AAA001 /* EvidenceBasedUserAdaptationBackend.swift */,
 				E002A1B22F10000000AAA001 /* GoogleGenerateContentConfiguration.swift */,
 				E002A1C42F10000900AAA001 /* InputMethodController+LLM.swift */,
 				E002A1B62F10000200AAA001 /* LLMCloudAPI.swift */,
 				E002A1BC2F10000500AAA001 /* LLMCloudClient.swift */,
+				E002A1D82F10000E00AAA001 /* LLMCorrectionEvidenceStore.swift */,
+				E002A1D42F10000C00AAA001 /* LLMCorrectionFeedbackCoordinator.swift */,
+				E002A1D02F10000A00AAA001 /* LLMCorrectionTransaction.swift */,
 				E002A1B42F10000100AAA001 /* LLMEditAction.swift */,
 				E002A1B82F10000300AAA001 /* LLMHTTPTransport.swift */,
 				E002A1C02F10000700AAA001 /* LLMInputtingRewriteEngine.swift */,
+				E002A1DC2F10001000AAA001 /* UserAdaptationBackend.swift */,
 			);
 			path = LLM;
 			sourceTree = "<group>";
@@ -831,7 +861,12 @@
 				E002A1BD2F10000500AAA001 /* LLMCloudClient.swift in Sources */,
 				E002A1B92F10000300AAA001 /* LLMHTTPTransport.swift in Sources */,
 				E002A1C52F10000900AAA001 /* InputMethodController+LLM.swift in Sources */,
+				E002A1E12F10001200AAA001 /* EvidenceBasedUserAdaptationBackend.swift in Sources */,
+				E002A1D92F10000E00AAA001 /* LLMCorrectionEvidenceStore.swift in Sources */,
+				E002A1D52F10000C00AAA001 /* LLMCorrectionFeedbackCoordinator.swift in Sources */,
+				E002A1D12F10000A00AAA001 /* LLMCorrectionTransaction.swift in Sources */,
 				E002A1C12F10000700AAA001 /* LLMInputtingRewriteEngine.swift in Sources */,
+				E002A1DD2F10001000AAA001 /* UserAdaptationBackend.swift in Sources */,
 				D4E569DC27A34D0E00AC2CEF /* KeyHandler.mm in Sources */,
 				6A4F5F982879E838008C4307 /* reading_grid.cpp in Sources */,
 				D47F7DD0278C0897002F9DD7 /* NonModalAlertWindowController.swift in Sources */,
@@ -870,9 +905,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				E001A1B92F00100300AAA001 /* CandidateRankingTests.swift in Sources */,
+				E002A1E32F10001300AAA001 /* EvidenceBasedUserAdaptationBackendTests.swift in Sources */,
+				E002A1DB2F10000F00AAA001 /* LLMCorrectionEvidenceStoreTests.swift in Sources */,
+				E002A1D72F10000D00AAA001 /* LLMCorrectionFeedbackCoordinatorTests.swift in Sources */,
+				E002A1D32F10000B00AAA001 /* LLMCorrectionTransactionTests.swift in Sources */,
 				E002A1BF2F10000600AAA001 /* LLMCloudClientTests.swift in Sources */,
 				E002A1C32F10000800AAA001 /* LLMInputtingRewriteEngineTests.swift in Sources */,
 				E002A1BB2F10000400AAA001 /* LLMHTTPTransportTests.swift in Sources */,
+				E002A1DF2F10001100AAA001 /* UserAdaptationBackendTests.swift in Sources */,
 				D4A8E43627A9E982002F7A07 /* KeyHandlerPlainBopomofoTests.swift in Sources */,
 				D436E23F2CD20BA700C6155D /* AssociatedPhrasesTests.swift in Sources */,
 				D449AD5F2B393C00000C5812 /* InputMacroTests.swift in Sources */,

@@ -277,6 +277,118 @@ final class PreferencesViewModel: NSObject, ObservableObject {
         }
     }
 
+    var llmCorrectionMemoryReadsEnabled: Bool {
+        get { Preferences.llmCorrectionMemoryReadsEnabled }
+        set {
+            objectWillChange.send()
+            Preferences.llmCorrectionMemoryReadsEnabled = newValue
+        }
+    }
+
+    var llmCorrectionMemoryWritesEnabled: Bool {
+        get { Preferences.llmCorrectionMemoryWritesEnabled }
+        set {
+            objectWillChange.send()
+            Preferences.llmCorrectionMemoryWritesEnabled = newValue
+        }
+    }
+
+    var llmCorrectionLearningEnabled: Bool {
+        get { Preferences.llmCorrectionLearningEnabled }
+        set {
+            objectWillChange.send()
+            Preferences.llmCorrectionLearningEnabled = newValue
+        }
+    }
+
+    var llmCorrectionMinimumConfidencePercent: Int {
+        get { Preferences.llmCorrectionMinimumConfidencePercent }
+        set {
+            objectWillChange.send()
+            Preferences.llmCorrectionMinimumConfidencePercent = newValue
+        }
+    }
+
+    var llmCorrectionShortTermHalfLifeMinutes: Int {
+        get { Preferences.llmCorrectionShortTermHalfLifeMinutes }
+        set {
+            objectWillChange.send()
+            Preferences.llmCorrectionShortTermHalfLifeMinutes = newValue
+        }
+    }
+
+    var llmCorrectionShortTermMaximumAgeMinutes: Int {
+        get { Preferences.llmCorrectionShortTermMaximumAgeMinutes }
+        set {
+            objectWillChange.send()
+            Preferences.llmCorrectionShortTermMaximumAgeMinutes = newValue
+        }
+    }
+
+    var llmCorrectionLongTermHalfLifeDays: Int {
+        get { Preferences.llmCorrectionLongTermHalfLifeDays }
+        set {
+            objectWillChange.send()
+            Preferences.llmCorrectionLongTermHalfLifeDays = newValue
+        }
+    }
+
+    var llmCorrectionLongTermMaximumAgeDays: Int {
+        get { Preferences.llmCorrectionLongTermMaximumAgeDays }
+        set {
+            objectWillChange.send()
+            Preferences.llmCorrectionLongTermMaximumAgeDays = newValue
+        }
+    }
+
+    var llmCorrectionLongTermMinimumAcceptances: Int {
+        get { Preferences.llmCorrectionLongTermMinimumAcceptances }
+        set {
+            objectWillChange.send()
+            Preferences.llmCorrectionLongTermMinimumAcceptances = newValue
+        }
+    }
+
+    var llmCorrectionLongTermMinimumSessions: Int {
+        get { Preferences.llmCorrectionLongTermMinimumSessions }
+        set {
+            objectWillChange.send()
+            Preferences.llmCorrectionLongTermMinimumSessions = newValue
+        }
+    }
+
+    var llmCorrectionMinimumAcceptanceRatioPercent: Int {
+        get { Preferences.llmCorrectionMinimumAcceptanceRatioPercent }
+        set {
+            objectWillChange.send()
+            Preferences.llmCorrectionMinimumAcceptanceRatioPercent = newValue
+        }
+    }
+
+    func resetLLMCorrectionMemoryTuningDefaults() {
+        objectWillChange.send()
+        Preferences.resetLLMCorrectionMemoryTuningDefaults()
+    }
+
+    func confirmAndClearLLMCorrectionMemory() {
+        let alert = NSAlert()
+        alert.messageText = NSLocalizedString("Clear LLM Correction Memory?", comment: "")
+        alert.informativeText = NSLocalizedString(
+            "This clears only corrections learned from accepted LLM results. Manual user phrases are preserved.",
+            comment: "")
+        alert.addButton(withTitle: NSLocalizedString("Clear LLM Correction Memory", comment: ""))
+        alert.addButton(withTitle: NSLocalizedString("Cancel", comment: ""))
+        guard alert.runModal() == .alertFirstButtonReturn else {
+            return
+        }
+
+        do {
+            try LLMCorrectionEvidenceStore.shared.reset(source: .acceptedLLMCorrection)
+        } catch {
+            NSAlert(error: error).runModal()
+        }
+    }
+
     var llmCandidateRankingTimeoutMs: Int {
         get { Preferences.llmCandidateRankingTimeoutMs }
         set {

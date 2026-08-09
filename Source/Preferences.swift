@@ -77,6 +77,23 @@ private let kEnableUserPhrasesInPlainBopomofo = "EnableUserPhrasesInPlainBopomof
 private let kAllowChangingPriorTone = "AllowChangingPriorTone"
 private let kLLMCandidateRankingEnabledKey = "LLMCandidateRankingEnabled"
 private let kLLMEditActionRerankingEnabledKey = "LLMEditActionRerankingEnabled"
+private let kLLMCorrectionMemoryReadsEnabledKey = "LLMCorrectionMemoryReadsEnabled"
+private let kLLMCorrectionMemoryWritesEnabledKey = "LLMCorrectionMemoryWritesEnabled"
+private let kLLMCorrectionLearningEnabledKey = "LLMCorrectionLearningEnabled"
+private let kLLMCorrectionMinimumConfidencePercentKey =
+    "LLMCorrectionMinimumConfidencePercent"
+private let kLLMCorrectionShortTermHalfLifeMinutesKey =
+    "LLMCorrectionShortTermHalfLifeMinutes"
+private let kLLMCorrectionShortTermMaximumAgeMinutesKey =
+    "LLMCorrectionShortTermMaximumAgeMinutes"
+private let kLLMCorrectionLongTermHalfLifeDaysKey = "LLMCorrectionLongTermHalfLifeDays"
+private let kLLMCorrectionLongTermMaximumAgeDaysKey = "LLMCorrectionLongTermMaximumAgeDays"
+private let kLLMCorrectionLongTermMinimumAcceptancesKey =
+    "LLMCorrectionLongTermMinimumAcceptances"
+private let kLLMCorrectionLongTermMinimumSessionsKey =
+    "LLMCorrectionLongTermMinimumSessions"
+private let kLLMCorrectionMinimumAcceptanceRatioPercentKey =
+    "LLMCorrectionMinimumAcceptanceRatioPercent"
 private let kLLMCandidateRankingTimeoutMsKey = "LLMCandidateRankingTimeoutMs"
 private let kLLMInputtingPauseMsKey = "LLMInputtingPauseMs"
 private let kLLMShowActivityIndicatorKey = "LLMShowActivityIndicator"
@@ -97,6 +114,14 @@ private let kMaxLLMCandidateRankingTimeoutMs = 5000
 private let kDefaultLLMInputtingPauseMs = 600
 private let kMinLLMInputtingPauseMs = 100
 private let kMaxLLMInputtingPauseMs = 3000
+private let kDefaultLLMCorrectionMinimumConfidencePercent = 90
+private let kDefaultLLMCorrectionShortTermHalfLifeMinutes = 90
+private let kDefaultLLMCorrectionShortTermMaximumAgeMinutes = 90
+private let kDefaultLLMCorrectionLongTermHalfLifeDays = 180
+private let kDefaultLLMCorrectionLongTermMaximumAgeDays = 365
+private let kDefaultLLMCorrectionLongTermMinimumAcceptances = 3
+private let kDefaultLLMCorrectionLongTermMinimumSessions = 2
+private let kDefaultLLMCorrectionMinimumAcceptanceRatioPercent = 80
 private let kDefaultLLMGoogleModelName = "gemini-3.6-flash"
 private let kDefaultLLMGoogleEndpoint = "https://generativelanguage.googleapis.com/v1beta"
 private let kDefaultLLMOpenAIModelName = "gpt-4.1-mini"
@@ -369,6 +394,17 @@ class Preferences: NSObject {
             kCustomUserPhraseLocation,
             kLLMCandidateRankingEnabledKey,
             kLLMEditActionRerankingEnabledKey,
+            kLLMCorrectionMemoryReadsEnabledKey,
+            kLLMCorrectionMemoryWritesEnabledKey,
+            kLLMCorrectionLearningEnabledKey,
+            kLLMCorrectionMinimumConfidencePercentKey,
+            kLLMCorrectionShortTermHalfLifeMinutesKey,
+            kLLMCorrectionShortTermMaximumAgeMinutesKey,
+            kLLMCorrectionLongTermHalfLifeDaysKey,
+            kLLMCorrectionLongTermMaximumAgeDaysKey,
+            kLLMCorrectionLongTermMinimumAcceptancesKey,
+            kLLMCorrectionLongTermMinimumSessionsKey,
+            kLLMCorrectionMinimumAcceptanceRatioPercentKey,
             kLLMCandidateRankingTimeoutMsKey,
             kLLMInputtingPauseMsKey,
             kLLMShowActivityIndicatorKey,
@@ -416,6 +452,28 @@ class Preferences: NSObject {
         Preferences.llmCandidateRankingEnabled = Preferences.llmCandidateRankingEnabled
         Preferences.llmEditActionRerankingEnabled =
             Preferences.llmEditActionRerankingEnabled
+        Preferences.llmCorrectionMemoryReadsEnabled =
+            Preferences.llmCorrectionMemoryReadsEnabled
+        Preferences.llmCorrectionMemoryWritesEnabled =
+            Preferences.llmCorrectionMemoryWritesEnabled
+        Preferences.llmCorrectionLearningEnabled =
+            Preferences.llmCorrectionLearningEnabled
+        Preferences.llmCorrectionMinimumConfidencePercent =
+            Preferences.llmCorrectionMinimumConfidencePercent
+        Preferences.llmCorrectionShortTermHalfLifeMinutes =
+            Preferences.llmCorrectionShortTermHalfLifeMinutes
+        Preferences.llmCorrectionShortTermMaximumAgeMinutes =
+            Preferences.llmCorrectionShortTermMaximumAgeMinutes
+        Preferences.llmCorrectionLongTermHalfLifeDays =
+            Preferences.llmCorrectionLongTermHalfLifeDays
+        Preferences.llmCorrectionLongTermMaximumAgeDays =
+            Preferences.llmCorrectionLongTermMaximumAgeDays
+        Preferences.llmCorrectionLongTermMinimumAcceptances =
+            Preferences.llmCorrectionLongTermMinimumAcceptances
+        Preferences.llmCorrectionLongTermMinimumSessions =
+            Preferences.llmCorrectionLongTermMinimumSessions
+        Preferences.llmCorrectionMinimumAcceptanceRatioPercent =
+            Preferences.llmCorrectionMinimumAcceptanceRatioPercent
         Preferences.llmCandidateRankingTimeoutMs = Preferences.llmCandidateRankingTimeoutMs
         Preferences.llmInputtingPauseMs = Preferences.llmInputtingPauseMs
         Preferences.llmShowActivityIndicator = Preferences.llmShowActivityIndicator
@@ -754,6 +812,82 @@ extension Preferences {
     @UserDefault(key: kLLMEditActionRerankingEnabledKey, defaultValue: false)
     @objc static var llmEditActionRerankingEnabled: Bool
 
+    @UserDefault(key: kLLMCorrectionMemoryReadsEnabledKey, defaultValue: true)
+    @objc static var llmCorrectionMemoryReadsEnabled: Bool
+
+    @UserDefault(key: kLLMCorrectionMemoryWritesEnabledKey, defaultValue: true)
+    @objc static var llmCorrectionMemoryWritesEnabled: Bool
+
+    @UserDefault(key: kLLMCorrectionLearningEnabledKey, defaultValue: true)
+    @objc static var llmCorrectionLearningEnabled: Bool
+
+    @BoundedIntUserDefault(
+        key: kLLMCorrectionMinimumConfidencePercentKey,
+        defaultValue: kDefaultLLMCorrectionMinimumConfidencePercent,
+        minValue: 0, maxValue: 100)
+    @objc static var llmCorrectionMinimumConfidencePercent: Int
+
+    @BoundedIntUserDefault(
+        key: kLLMCorrectionShortTermHalfLifeMinutesKey,
+        defaultValue: kDefaultLLMCorrectionShortTermHalfLifeMinutes,
+        minValue: 1, maxValue: 10_080)
+    @objc static var llmCorrectionShortTermHalfLifeMinutes: Int
+
+    @BoundedIntUserDefault(
+        key: kLLMCorrectionShortTermMaximumAgeMinutesKey,
+        defaultValue: kDefaultLLMCorrectionShortTermMaximumAgeMinutes,
+        minValue: 1, maxValue: 43_200)
+    @objc static var llmCorrectionShortTermMaximumAgeMinutes: Int
+
+    @BoundedIntUserDefault(
+        key: kLLMCorrectionLongTermHalfLifeDaysKey,
+        defaultValue: kDefaultLLMCorrectionLongTermHalfLifeDays,
+        minValue: 1, maxValue: 3_650)
+    @objc static var llmCorrectionLongTermHalfLifeDays: Int
+
+    @BoundedIntUserDefault(
+        key: kLLMCorrectionLongTermMaximumAgeDaysKey,
+        defaultValue: kDefaultLLMCorrectionLongTermMaximumAgeDays,
+        minValue: 1, maxValue: 3_650)
+    @objc static var llmCorrectionLongTermMaximumAgeDays: Int
+
+    @BoundedIntUserDefault(
+        key: kLLMCorrectionLongTermMinimumAcceptancesKey,
+        defaultValue: kDefaultLLMCorrectionLongTermMinimumAcceptances,
+        minValue: 1, maxValue: 100)
+    @objc static var llmCorrectionLongTermMinimumAcceptances: Int
+
+    @BoundedIntUserDefault(
+        key: kLLMCorrectionLongTermMinimumSessionsKey,
+        defaultValue: kDefaultLLMCorrectionLongTermMinimumSessions,
+        minValue: 1, maxValue: 20)
+    @objc static var llmCorrectionLongTermMinimumSessions: Int
+
+    @BoundedIntUserDefault(
+        key: kLLMCorrectionMinimumAcceptanceRatioPercentKey,
+        defaultValue: kDefaultLLMCorrectionMinimumAcceptanceRatioPercent,
+        minValue: 0, maxValue: 100)
+    @objc static var llmCorrectionMinimumAcceptanceRatioPercent: Int
+
+    @objc static func resetLLMCorrectionMemoryTuningDefaults() {
+        llmCorrectionMinimumConfidencePercent =
+            kDefaultLLMCorrectionMinimumConfidencePercent
+        llmCorrectionShortTermHalfLifeMinutes =
+            kDefaultLLMCorrectionShortTermHalfLifeMinutes
+        llmCorrectionShortTermMaximumAgeMinutes =
+            kDefaultLLMCorrectionShortTermMaximumAgeMinutes
+        llmCorrectionLongTermHalfLifeDays =
+            kDefaultLLMCorrectionLongTermHalfLifeDays
+        llmCorrectionLongTermMaximumAgeDays =
+            kDefaultLLMCorrectionLongTermMaximumAgeDays
+        llmCorrectionLongTermMinimumAcceptances =
+            kDefaultLLMCorrectionLongTermMinimumAcceptances
+        llmCorrectionLongTermMinimumSessions =
+            kDefaultLLMCorrectionLongTermMinimumSessions
+        llmCorrectionMinimumAcceptanceRatioPercent =
+            kDefaultLLMCorrectionMinimumAcceptanceRatioPercent
+    }
+
     @BoundedIntUserDefault(
         key: kLLMCandidateRankingTimeoutMsKey, defaultValue: kDefaultLLMCandidateRankingTimeoutMs,
         minValue: kMinLLMCandidateRankingTimeoutMs, maxValue: kMaxLLMCandidateRankingTimeoutMs)
@@ -895,6 +1029,39 @@ extension Preferences {
         )
         lines.append(
             "  - LLM Edit Action Reranking: \(Preferences.llmEditActionRerankingEnabled ? "Enabled" : "Disabled")"
+        )
+        lines.append(
+            "  - LLM Correction Memory Reads: \(Preferences.llmCorrectionMemoryReadsEnabled ? "Enabled" : "Disabled")"
+        )
+        lines.append(
+            "  - LLM Correction Memory Writes: \(Preferences.llmCorrectionMemoryWritesEnabled ? "Enabled" : "Disabled")"
+        )
+        lines.append(
+            "  - Learn from Accepted LLM Corrections: \(Preferences.llmCorrectionLearningEnabled ? "Enabled" : "Disabled")"
+        )
+        lines.append(
+            "  - LLM Correction Minimum Confidence: \(Preferences.llmCorrectionMinimumConfidencePercent)%"
+        )
+        lines.append(
+            "  - LLM Correction Short-Term Half-Life: \(Preferences.llmCorrectionShortTermHalfLifeMinutes) minutes"
+        )
+        lines.append(
+            "  - LLM Correction Short-Term Maximum Age: \(Preferences.llmCorrectionShortTermMaximumAgeMinutes) minutes"
+        )
+        lines.append(
+            "  - LLM Correction Long-Term Half-Life: \(Preferences.llmCorrectionLongTermHalfLifeDays) days"
+        )
+        lines.append(
+            "  - LLM Correction Long-Term Maximum Age: \(Preferences.llmCorrectionLongTermMaximumAgeDays) days"
+        )
+        lines.append(
+            "  - LLM Correction Long-Term Minimum Acceptances: \(Preferences.llmCorrectionLongTermMinimumAcceptances)"
+        )
+        lines.append(
+            "  - LLM Correction Long-Term Minimum Sessions: \(Preferences.llmCorrectionLongTermMinimumSessions)"
+        )
+        lines.append(
+            "  - LLM Correction Minimum Acceptance Ratio: \(Preferences.llmCorrectionMinimumAcceptanceRatioPercent)%"
         )
         lines.append(
             "  - LLM Candidate Ranking Timeout: \(Preferences.llmCandidateRankingTimeoutMs) ms")

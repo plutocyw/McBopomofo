@@ -231,6 +231,15 @@ extension McBopomofoInputMethodController {
             return
         }
 
+        if applyUserAdaptationSuggestionIfAvailable(
+            context: context,
+            client: client)
+        {
+            CandidateRankingStats.record(.localMemoryHit)
+            return
+        }
+        CandidateRankingStats.record(.localMemoryMiss)
+
         let elapsed = Date().timeIntervalSince(lastCandidateRankingDispatchAt)
         if elapsed < candidateRankingMinIntervalSeconds {
             let delay = candidateRankingMinIntervalSeconds - elapsed
@@ -305,6 +314,13 @@ extension McBopomofoInputMethodController {
                 notifyLLMActivity(state: .fallback)
                 return
             }
+            if let transaction = makeCorrectionTransaction(
+                context: context,
+                editActions: editActions,
+                actionIDs: actionIDs)
+            {
+                llmCorrectionFeedbackCoordinator.begin(transaction)
+            }
             CandidateRankingStats.record(.applied)
             notifyLLMActivity(state: .applied)
             skipNextInputtingRankingSchedule = true
@@ -322,7 +338,6 @@ extension McBopomofoInputMethodController {
             notifyLLMActivity(state: .fallback)
             return
         }
-        var hasNonZeroSelection = false
         for (index, selected) in selections.enumerated() {
             let count = context.segments[index].candidates.count
             if selected < 0 || selected >= count {
@@ -330,11 +345,11 @@ extension McBopomofoInputMethodController {
                 notifyLLMActivity(state: .fallback)
                 return
             }
-            if selected != 0 {
-                hasNonZeroSelection = true
-            }
         }
-        if !hasNonZeroSelection {
+        guard let transaction = makeCorrectionTransaction(
+            context: context,
+            selections: selections)
+        else {
             notifyLLMActivity(state: .applied)
             return
         }
@@ -350,10 +365,214 @@ extension McBopomofoInputMethodController {
         guard let rerankedInputtingState = keyHandler.buildInputtingState() as? InputState.Inputting else {
             return
         }
+        llmCorrectionFeedbackCoordinator.begin(transaction)
         CandidateRankingStats.record(.applied)
         notifyLLMActivity(state: .applied)
         skipNextInputtingRankingSchedule = true
         handle(state: rerankedInputtingState, client: client)
+    }
+
+    private func makeCorrectionTransaction(
+        context: InputtingRankingContext,
+        selections: [Int],
+        learnsAcceptance: Bool = true
+    ) -> LLMCorrectionTransaction? {
+        guard selections.count == context.segments.count else {
+            return nil
+        }
+        let changes = selections.enumerated().compactMap {
+            index, selection -> LLMCorrectionChange? in
+            let segment = context.segments[index]
+            guard selection >= 0, selection < segment.candidates.count else {
+                return nil
+            }
+            let replacement = segment.candidates[selection].value
+            guard replacement != segment.currentValue else {
+                return nil
+            }
+            let leftSegment = index > 0 ? context.segments[index - 1] : nil
+            return LLMCorrectionChange(
+                start: segment.startCursor,
+                end: segment.startCursor + segment.currentValue.count,
+                originalValue: segment.currentValue,
+                replacementValue: replacement,
+                context: LLMCorrectionContext(
+                    reading: segment.reading,
+                    leftReading: leftSegment?.reading,
+                    leftValue: leftSegment?.currentValue))
+        }
+        return LLMCorrectionTransaction(
+            originalBuffer: context.composingBuffer,
+            changes: changes,
+            learnsAcceptance: learnsAcceptance)
+    }
+
+    private func applyUserAdaptationSuggestionIfAvailable(
+        context: InputtingRankingContext,
+        client: Any
+    ) -> Bool {
+        let queries = context.segments.enumerated().map { index, segment in
+            let leftSegment = index > 0 ? context.segments[index - 1] : nil
+            return UserAdaptationQuery(
+                context: UserAdaptationContext(
+                    reading: segment.reading,
+                    currentValue: segment.currentValue,
+                    leftReading: leftSegment?.reading,
+                    leftValue: leftSegment?.currentValue),
+                candidateValues: segment.candidates.map(\.value))
+        }
+        let suggestions: [UserAdaptationSuggestion?]
+        do {
+            suggestions = try userAdaptationBackend.suggestions(for: queries)
+        } catch {
+            NSLog("Failed to read user adaptation suggestions: \(error)")
+            return false
+        }
+        guard suggestions.count == context.segments.count else {
+            return false
+        }
+
+        guard
+            let selections = UserAdaptationSelectionPlanner.selections(
+                currentValues: context.segments.map(\.currentValue),
+                candidateValues: context.segments.map { $0.candidates.map(\.value) },
+                suggestions: suggestions,
+                minimumConfidence: Double(
+                    Preferences.llmCorrectionMinimumConfidencePercent) / 100)
+        else {
+            return false
+        }
+        guard
+            let transaction = makeCorrectionTransaction(
+                context: context,
+                selections: selections,
+                learnsAcceptance: false),
+            keyHandler.applySegmentCandidateOverrides(
+                selections: selections.map { NSNumber(value: $0) }),
+            let adaptedState = keyHandler.buildInputtingState() as? InputState.Inputting
+        else {
+            return false
+        }
+
+        llmCorrectionFeedbackCoordinator.begin(transaction)
+        skipNextInputtingRankingSchedule = true
+        handle(state: adaptedState, client: client)
+        return true
+    }
+
+    private func makeCorrectionTransaction(
+        context: InputtingRankingContext,
+        editActions: [LLMEditAction],
+        actionIDs: [Int]
+    ) -> LLMCorrectionTransaction? {
+        let originalCharacters = Array(context.composingBuffer)
+        let changes = actionIDs.compactMap { actionID -> LLMCorrectionChange? in
+            guard actionID >= 0, actionID < editActions.count else {
+                return nil
+            }
+            let action = editActions[actionID]
+            guard action.start >= 0, action.end <= originalCharacters.count else {
+                return nil
+            }
+            let originalValue = String(originalCharacters[action.start..<action.end])
+            let coveredSegments = context.segments.filter { segment in
+                let segmentEnd = segment.startCursor + segment.currentValue.count
+                return segment.startCursor >= action.start && segmentEnd <= action.end
+            }
+            let leftSegment = context.segments.last { segment in
+                segment.startCursor + segment.currentValue.count <= action.start
+            }
+            let reading = coveredSegments.isEmpty
+                ? nil
+                : coveredSegments.map(\.reading).joined(separator: "-")
+            return LLMCorrectionChange(
+                start: action.start,
+                end: action.end,
+                originalValue: originalValue,
+                replacementValue: action.replacement,
+                context: LLMCorrectionContext(
+                    reading: reading,
+                    leftReading: leftSegment?.reading,
+                    leftValue: leftSegment?.currentValue))
+        }
+        return LLMCorrectionTransaction(
+            originalBuffer: context.composingBuffer,
+            changes: changes)
+    }
+
+    func reconcileLLMCorrectionFeedback(
+        newState: InputState,
+        previousState: InputState
+    ) {
+        switch newState {
+        case let committing as InputState.Committing:
+            guard previousState is InputState.NotEmpty else {
+                return
+            }
+            finishLLMCorrectionFeedback(
+                disposition: .committed,
+                finalBuffer: committing.poppedText)
+        case is InputState.Empty:
+            guard let previous = previousState as? InputState.NotEmpty else {
+                return
+            }
+            finishLLMCorrectionFeedback(
+                disposition: .committed,
+                finalBuffer: previous.composingBuffer)
+        case is InputState.Deactivated:
+            guard let previous = previousState as? InputState.NotEmpty else {
+                return
+            }
+            finishLLMCorrectionFeedback(
+                disposition: .committed,
+                finalBuffer: previous.composingBuffer)
+        case is InputState.EmptyIgnoringPreviousState:
+            finishLLMCorrectionFeedback(disposition: .cancelled)
+        default:
+            break
+        }
+    }
+
+    private func finishLLMCorrectionFeedback(
+        disposition: LLMCorrectionTransactionDisposition,
+        finalBuffer: String? = nil
+    ) {
+        let evidence = llmCorrectionFeedbackCoordinator.finish(
+            disposition: disposition,
+            finalBuffer: finalBuffer)
+        let timestamp = Date()
+        for item in evidence {
+            let outcome: UserAdaptationObservationOutcome
+            switch item.outcome {
+            case .accepted:
+                CandidateRankingStats.record(.correctionAccepted)
+                outcome = .accepted
+            case .rejected:
+                CandidateRankingStats.record(.correctionRejected)
+                if item.origin == .localMemory {
+                    CandidateRankingStats.record(.postHitManualReversal)
+                }
+                outcome = .rejected
+            case .neutral:
+                continue
+            }
+            do {
+                try userAdaptationBackend.observe(
+                    UserAdaptationObservation(
+                        context: UserAdaptationContext(
+                            reading: item.change.context.reading,
+                            currentValue: item.change.originalValue,
+                            leftReading: item.change.context.leftReading,
+                            leftValue: item.change.context.leftValue),
+                        replacementValue: item.change.replacementValue,
+                        outcome: outcome,
+                        source: .acceptedLLMCorrection,
+                        weight: 1,
+                        timestamp: timestamp))
+            } catch {
+                NSLog("Failed to persist LLM correction evidence: \(error)")
+            }
+        }
     }
 
     private func rankWholeInputtingBuffer(

@@ -25,9 +25,58 @@ import CandidateUI
 import Cocoa
 import InputMethodKit
 import NotifierUI
+import OSLog
 import OpenCCBridge
 import SystemCharacterInfo
 import TooltipUI
+
+/// Lifecycle diagnostics for investigating InputMethodKit connection and main-thread stalls.
+///
+/// Do not include composed text, key labels, or candidate contents in these messages.
+enum InputMethodDiagnostics {
+    private static let logger = Logger(
+        subsystem: "org.openvanilla.inputmethod.McBopomofo",
+        category: "InputMethodLifecycle")
+    static let sessionID = String(UUID().uuidString.prefix(8))
+
+    static func elapsedMilliseconds(since start: TimeInterval) -> Double {
+        (ProcessInfo.processInfo.systemUptime - start) * 1_000
+    }
+
+    static func clientType(_ client: Any?) -> String {
+        guard let client else {
+            return "nil"
+        }
+        return String(reflecting: type(of: client))
+    }
+
+    static func log(
+        _ event: String,
+        controllerID: String = "-",
+        activation: Int = 0,
+        client: Any? = nil,
+        detail: String = "-",
+        durationMilliseconds: Double? = nil
+    ) {
+        let pid = ProcessInfo.processInfo.processIdentifier
+        let clientName = clientType(client)
+        let isMainThread = Thread.isMainThread
+        if let durationMilliseconds {
+            let duration = String(format: "%.1f", durationMilliseconds)
+            logger.notice(
+                "event=\(event, privacy: .public) session=\(sessionID, privacy: .public) pid=\(pid) controller=\(controllerID, privacy: .public) activation=\(activation) client=\(clientName, privacy: .public) main_thread=\(isMainThread) detail=\(detail, privacy: .public) duration_ms=\(duration, privacy: .public)")
+        } else {
+            logger.notice(
+                "event=\(event, privacy: .public) session=\(sessionID, privacy: .public) pid=\(pid) controller=\(controllerID, privacy: .public) activation=\(activation) client=\(clientName, privacy: .public) main_thread=\(isMainThread) detail=\(detail, privacy: .public)")
+        }
+    }
+
+    static func error(_ event: String, detail: String) {
+        let pid = ProcessInfo.processInfo.processIdentifier
+        logger.error(
+            "event=\(event, privacy: .public) session=\(sessionID, privacy: .public) pid=\(pid) detail=\(detail, privacy: .public)")
+    }
+}
 
 extension Bool {
     fileprivate var state: NSControl.StateValue {
@@ -48,6 +97,9 @@ extension CandidateController {
 class McBopomofoInputMethodController: IMKInputController {
 
     private static let tooltipController = TooltipController()
+    private let diagnosticControllerID = String(UUID().uuidString.prefix(8))
+    private var diagnosticActivationSequence = 0
+    private var diagnosticDidLogFirstEvent = false
 
     // MARK: -
 
@@ -67,6 +119,11 @@ class McBopomofoInputMethodController: IMKInputController {
     var skipNextInputtingRankingSchedule = false
     var suppressInputtingRankingAfterManualCandidateSelection = false
     private var manualSelectionSuppressedBufferLength = 0
+    var llmCorrectionFeedbackCoordinator = LLMCorrectionFeedbackCoordinator()
+    var userAdaptationBackend: UserAdaptationBackend =
+        EvidenceBasedUserAdaptationBackend(
+            store: LLMCorrectionEvidenceStore.shared,
+            policyProvider: EvidenceBasedUserAdaptationPolicy.fromPreferences)
     let candidateRankingQueue = DispatchQueue(
         label: "org.openvanilla.McBopomofo.CandidateRanking",
         qos: .userInitiated
@@ -80,9 +137,34 @@ class McBopomofoInputMethodController: IMKInputController {
     override init!(server: IMKServer!, delegate: Any!, client inputClient: Any!) {
         super.init(server: server, delegate: delegate, client: inputClient)
         keyHandler.delegate = self
+        InputMethodDiagnostics.log(
+            "controller_init_end", controllerID: diagnosticControllerID, client: inputClient)
+    }
+
+    deinit {
+        InputMethodDiagnostics.log(
+            "controller_deinit", controllerID: diagnosticControllerID,
+            activation: diagnosticActivationSequence, client: currentClient)
+    }
+
+    override func inputControllerWillClose() {
+        InputMethodDiagnostics.log(
+            "controller_will_close", controllerID: diagnosticControllerID,
+            activation: diagnosticActivationSequence, client: currentClient)
+        super.inputControllerWillClose()
     }
 
     override func menu() -> NSMenu! {
+        let start = ProcessInfo.processInfo.systemUptime
+        InputMethodDiagnostics.log(
+            "menu_begin", controllerID: diagnosticControllerID,
+            activation: diagnosticActivationSequence, client: currentClient)
+        defer {
+            InputMethodDiagnostics.log(
+                "menu_end", controllerID: diagnosticControllerID,
+                activation: diagnosticActivationSequence, client: currentClient,
+                durationMilliseconds: InputMethodDiagnostics.elapsedMilliseconds(since: start))
+        }
         let menu = NSMenu(title: "Input Method Menu")
 
         let chineseConversionItem = menu.addItem(
@@ -189,21 +271,55 @@ class McBopomofoInputMethodController: IMKInputController {
     // MARK: - IMKStateSetting protocol methods
 
     override func activateServer(_ client: Any!) {
+        diagnosticActivationSequence += 1
+        diagnosticDidLogFirstEvent = false
+        let start = ProcessInfo.processInfo.systemUptime
+        InputMethodDiagnostics.log(
+            "activate_begin", controllerID: diagnosticControllerID,
+            activation: diagnosticActivationSequence, client: client)
+        defer {
+            InputMethodDiagnostics.log(
+                "activate_end", controllerID: diagnosticControllerID,
+                activation: diagnosticActivationSequence, client: client,
+                durationMilliseconds: InputMethodDiagnostics.elapsedMilliseconds(since: start))
+        }
         UserDefaults.standard.synchronize()
+        InputMethodDiagnostics.log(
+            "activate_phase", controllerID: diagnosticControllerID,
+            activation: diagnosticActivationSequence, client: client,
+            detail: "defaults_synchronized")
 
         // Override the keyboard layout. Use US if not set.
         (client as? IMKTextInput)?.overrideKeyboard(
             withKeyboardNamed: Preferences.basisKeyboardLayout)
+        InputMethodDiagnostics.log(
+            "activate_phase", controllerID: diagnosticControllerID,
+            activation: diagnosticActivationSequence, client: client,
+            detail: "keyboard_overridden")
         // reset the state
         currentClient = client
 
         keyHandler.clear()
         keyHandler.syncWithPreferences()
+        InputMethodDiagnostics.log(
+            "activate_phase", controllerID: diagnosticControllerID,
+            activation: diagnosticActivationSequence, client: client,
+            detail: "key_handler_synchronized")
 
         (NSApp.delegate as? AppDelegate)?.checkForUpdate()
     }
 
     override func deactivateServer(_ client: Any!) {
+        let start = ProcessInfo.processInfo.systemUptime
+        InputMethodDiagnostics.log(
+            "deactivate_begin", controllerID: diagnosticControllerID,
+            activation: diagnosticActivationSequence, client: client)
+        defer {
+            InputMethodDiagnostics.log(
+                "deactivate_end", controllerID: diagnosticControllerID,
+                activation: diagnosticActivationSequence, client: client,
+                durationMilliseconds: InputMethodDiagnostics.elapsedMilliseconds(since: start))
+        }
         currentClient = nil
         keyHandler.clear()
         self.handle(state: .Deactivated(), client: client)
@@ -211,7 +327,23 @@ class McBopomofoInputMethodController: IMKInputController {
 
     override func setValue(_ value: Any!, forTag tag: Int, client: Any!) {
         let newInputMode = InputMode(rawValue: value as? String ?? InputMode.bopomofo.rawValue)
+        let start = ProcessInfo.processInfo.systemUptime
+        InputMethodDiagnostics.log(
+            "set_value_begin", controllerID: diagnosticControllerID,
+            activation: diagnosticActivationSequence, client: client,
+            detail: "tag=\(tag) mode=\(newInputMode.rawValue)")
+        defer {
+            InputMethodDiagnostics.log(
+                "set_value_end", controllerID: diagnosticControllerID,
+                activation: diagnosticActivationSequence, client: client,
+                detail: "tag=\(tag) mode=\(newInputMode.rawValue)",
+                durationMilliseconds: InputMethodDiagnostics.elapsedMilliseconds(since: start))
+        }
         LanguageModelManager.loadDataModel(newInputMode)
+        InputMethodDiagnostics.log(
+            "set_value_phase", controllerID: diagnosticControllerID,
+            activation: diagnosticActivationSequence, client: client,
+            detail: "data_model_loaded")
         if keyHandler.inputMode != newInputMode {
             UserDefaults.standard.synchronize()
             // Remember to override the keyboard layout again -- treat this as an activate event.
@@ -240,6 +372,30 @@ class McBopomofoInputMethodController: IMKInputController {
     }
 
     override func handle(_ maybeEvent: NSEvent!, client: Any!) -> Bool {
+        let isFirstEvent = !diagnosticDidLogFirstEvent
+        let start = ProcessInfo.processInfo.systemUptime
+        if isFirstEvent {
+            diagnosticDidLogFirstEvent = true
+            InputMethodDiagnostics.log(
+                "first_event_begin", controllerID: diagnosticControllerID,
+                activation: diagnosticActivationSequence, client: client,
+                detail: "event_type=\(maybeEvent?.type.rawValue.description ?? "nil")")
+        }
+        defer {
+            let duration = InputMethodDiagnostics.elapsedMilliseconds(since: start)
+            if isFirstEvent {
+                InputMethodDiagnostics.log(
+                    "first_event_end", controllerID: diagnosticControllerID,
+                    activation: diagnosticActivationSequence, client: client,
+                    durationMilliseconds: duration)
+            } else if duration >= 250 {
+                InputMethodDiagnostics.log(
+                    "slow_event", controllerID: diagnosticControllerID,
+                    activation: diagnosticActivationSequence, client: client,
+                    detail: "event_type=\(maybeEvent?.type.rawValue.description ?? "nil")",
+                    durationMilliseconds: duration)
+            }
+        }
         // nil may be passed, applefeedback://FB11472618
         guard let event = maybeEvent else {
             commitComposition(client)
@@ -283,6 +439,12 @@ class McBopomofoInputMethodController: IMKInputController {
         var textFrame = NSRect.zero
         let attributes: [AnyHashable: Any]? = (client as? IMKTextInput)?.attributes(
             forCharacterIndex: 0, lineHeightRectangle: &textFrame)
+        if isFirstEvent {
+            InputMethodDiagnostics.log(
+                "first_event_phase", controllerID: diagnosticControllerID,
+                activation: diagnosticActivationSequence, client: client,
+                detail: "client_attributes_received")
+        }
         let useVerticalMode =
             (attributes?["IMKTextOrientation"] as? NSNumber)?.intValue == 0 || false
         let input = KeyHandlerInput(event: event, isVerticalMode: useVerticalMode)
@@ -295,12 +457,21 @@ class McBopomofoInputMethodController: IMKInputController {
                 NSSound.beep()
             }
         }
+        if isFirstEvent {
+            InputMethodDiagnostics.log(
+                "first_event_phase", controllerID: diagnosticControllerID,
+                activation: diagnosticActivationSequence, client: client,
+                detail: "key_handler_completed")
+        }
         return result
     }
 
     // MARK: - Menu Items
 
     @objc override func showPreferences(_ sender: Any?) {
+        InputMethodDiagnostics.log(
+            "preferences_menu_action", controllerID: diagnosticControllerID,
+            activation: diagnosticActivationSequence, client: currentClient)
         super.showPreferences(sender)
     }
 
@@ -383,23 +554,37 @@ class McBopomofoInputMethodController: IMKInputController {
     @objc func logCandidateRankingStats(_ sender: Any?) {
         let snapshot = CandidateRankingStats.currentSnapshot()
         NSLog(
-            "CandidateRankingStats snapshot scheduled=%d applied=%d staleDropped=%d timeoutFallback=%d invalidResultFallback=%d parserFallback=%d",
+            "CandidateRankingStats snapshot scheduled=%d applied=%d staleDropped=%d timeoutFallback=%d invalidResultFallback=%d parserFallback=%d localMemoryHit=%d localMemoryMiss=%d correctionAccepted=%d correctionRejected=%d memoryPromotion=%d memoryDemotion=%d postHitManualReversal=%d",
             snapshot.scheduled,
             snapshot.applied,
             snapshot.staleDropped,
             snapshot.timeoutFallback,
             snapshot.invalidResultFallback,
-            snapshot.parserFallback
+            snapshot.parserFallback,
+            snapshot.localMemoryHit,
+            snapshot.localMemoryMiss,
+            snapshot.correctionAccepted,
+            snapshot.correctionRejected,
+            snapshot.memoryPromotion,
+            snapshot.memoryDemotion,
+            snapshot.postHitManualReversal
         )
         let message = String(
             format:
-                "LLM ranking stats\nscheduled=%d\napplied=%d\nstaleDropped=%d\ntimeoutFallback=%d\ninvalidResultFallback=%d\nparserFallback=%d",
+                "LLM ranking stats\nscheduled=%d\napplied=%d\nstaleDropped=%d\ntimeoutFallback=%d\ninvalidResultFallback=%d\nparserFallback=%d\nlocalMemoryHit=%d\nlocalMemoryMiss=%d\ncorrectionAccepted=%d\ncorrectionRejected=%d\nmemoryPromotion=%d\nmemoryDemotion=%d\npostHitManualReversal=%d",
             snapshot.scheduled,
             snapshot.applied,
             snapshot.staleDropped,
             snapshot.timeoutFallback,
             snapshot.invalidResultFallback,
-            snapshot.parserFallback
+            snapshot.parserFallback,
+            snapshot.localMemoryHit,
+            snapshot.localMemoryMiss,
+            snapshot.correctionAccepted,
+            snapshot.correctionRejected,
+            snapshot.memoryPromotion,
+            snapshot.memoryDemotion,
+            snapshot.postHitManualReversal
         )
 
         let pasteboard = NSPasteboard.general
@@ -468,6 +653,7 @@ extension McBopomofoInputMethodController {
 
     func handle(state newState: InputState, client: Any?) {
         let previous = state
+        reconcileLLMCorrectionFeedback(newState: newState, previousState: previous)
         state = newState
         activeCandidateRankingToken = (newState as? InputState.ChoosingCandidate)?.rankingContextToken
         if let inputtingState = newState as? InputState.Inputting {

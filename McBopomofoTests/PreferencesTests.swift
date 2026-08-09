@@ -214,6 +214,61 @@ final class PreferencesTests {
         #expect(Preferences.llmEditActionRerankingEnabled == true)
     }
 
+    @Test("Test LLM correction memory controls")
+    func testLLMCorrectionMemoryControls() {
+        #expect(Preferences.llmCorrectionMemoryReadsEnabled == true)
+        #expect(Preferences.llmCorrectionMemoryWritesEnabled == true)
+        #expect(Preferences.llmCorrectionLearningEnabled == true)
+
+        Preferences.llmCorrectionMemoryReadsEnabled = false
+        Preferences.llmCorrectionMemoryWritesEnabled = false
+        Preferences.llmCorrectionLearningEnabled = false
+
+        #expect(Preferences.llmCorrectionMemoryReadsEnabled == false)
+        #expect(Preferences.llmCorrectionMemoryWritesEnabled == false)
+        #expect(Preferences.llmCorrectionLearningEnabled == false)
+    }
+
+    @Test("Test LLM correction memory tuning and bounds")
+    func testLLMCorrectionMemoryTuning() {
+        #expect(Preferences.llmCorrectionMinimumConfidencePercent == 90)
+        #expect(Preferences.llmCorrectionShortTermHalfLifeMinutes == 90)
+        #expect(Preferences.llmCorrectionShortTermMaximumAgeMinutes == 90)
+        #expect(Preferences.llmCorrectionLongTermHalfLifeDays == 180)
+        #expect(Preferences.llmCorrectionLongTermMaximumAgeDays == 365)
+        #expect(Preferences.llmCorrectionLongTermMinimumAcceptances == 3)
+        #expect(Preferences.llmCorrectionLongTermMinimumSessions == 2)
+        #expect(Preferences.llmCorrectionMinimumAcceptanceRatioPercent == 80)
+
+        Preferences.llmCorrectionMinimumConfidencePercent = 101
+        Preferences.llmCorrectionShortTermHalfLifeMinutes = 0
+        Preferences.llmCorrectionShortTermMaximumAgeMinutes = 50_000
+        Preferences.llmCorrectionLongTermHalfLifeDays = 0
+        Preferences.llmCorrectionLongTermMaximumAgeDays = 4_000
+        Preferences.llmCorrectionLongTermMinimumAcceptances = 0
+        Preferences.llmCorrectionLongTermMinimumSessions = 30
+        Preferences.llmCorrectionMinimumAcceptanceRatioPercent = -1
+
+        #expect(Preferences.llmCorrectionMinimumConfidencePercent == 100)
+        #expect(Preferences.llmCorrectionShortTermHalfLifeMinutes == 1)
+        #expect(Preferences.llmCorrectionShortTermMaximumAgeMinutes == 43_200)
+        #expect(Preferences.llmCorrectionLongTermHalfLifeDays == 1)
+        #expect(Preferences.llmCorrectionLongTermMaximumAgeDays == 3_650)
+        #expect(Preferences.llmCorrectionLongTermMinimumAcceptances == 1)
+        #expect(Preferences.llmCorrectionLongTermMinimumSessions == 20)
+        #expect(Preferences.llmCorrectionMinimumAcceptanceRatioPercent == 0)
+
+        Preferences.resetLLMCorrectionMemoryTuningDefaults()
+        #expect(Preferences.llmCorrectionMinimumConfidencePercent == 90)
+        #expect(Preferences.llmCorrectionShortTermHalfLifeMinutes == 90)
+        #expect(Preferences.llmCorrectionShortTermMaximumAgeMinutes == 90)
+        #expect(Preferences.llmCorrectionLongTermHalfLifeDays == 180)
+        #expect(Preferences.llmCorrectionLongTermMaximumAgeDays == 365)
+        #expect(Preferences.llmCorrectionLongTermMinimumAcceptances == 3)
+        #expect(Preferences.llmCorrectionLongTermMinimumSessions == 2)
+        #expect(Preferences.llmCorrectionMinimumAcceptanceRatioPercent == 80)
+    }
+
     @Test("Test LLM candidate ranking timeout bounds")
     func testLLMCandidateRankingTimeoutMs() {
         #expect(Preferences.llmCandidateRankingTimeoutMs == 12)
